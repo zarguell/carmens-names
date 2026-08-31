@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ name.name }} — last called {{ fmt_short(name.last) }} — {{ site_name }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="kicker">Name profile</p>
+  <h1><span class="chip chip-{{ chip_class(name.name) }} mega">{{ name.name }}</span></h1>
+  {% if name.days_since == 0 %}
+  <p class="freebie">🎉 Called <b>today</b> — go get that free gelati!</p>
+  {% else %}
+  <p class="served">Last called <b>{{ fmt_date(name.last) }}</b> — {{ pl(name.days_since, "day") }} ago.</p>
+  {% endif %}
+</section>
+
+<section class="stats-row">
+  <div class="stat"><b>{{ name.count }}</b><span>times called</span></div>
+  <div class="stat"><b>#{{ name.rank }}</b><span>of {{ name.total_names }} names</span></div>
+  <div class="stat"><b>{{ fmt_short(name.first) }}</b><span>first called</span></div>
+  <div class="stat"><b>{{ fmt_short(name.last) }}</b><span>last called</span></div>
+</section>
+
+{% if name.master_rank %}
+<p class="note">On the SSA national name list, {{ name.name }} ranks #{{ name.master_rank }} for long-term popularity.</p>
+{% endif %}
+
+<section class="card">
+  <h2>Every time {{ name.name }} got the call</h2>
+  <span class="chips">
+    {% for d in name.dates %}<a class="chip plain" href="{{ r }}day/{{ d }}/">{{ fmt_short(d) }}</a>{% endfor %}
+  </span>
+</section>
+<p><a class="btn" href="{{ r }}names/index.html">← All names</a></p>
+{% endblock %}

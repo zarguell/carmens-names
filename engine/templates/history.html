@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}History — {{ site_name }}{% endblock %}
+{% block content %}
+<h1>The Full Scoop</h1>
+<p>Every Names of the Day since {{ fmt_date(days[0].date) }} — {{ total_days }} days and counting.</p>
+{% for y in years %}
+<section class="card">
+  <h2 class="year">{{ y.year }}</h2>
+  {% for m in y.months %}
+  <h3>{{ m.label }}</h3>
+  <ul class="day-list">
+    {% for d in m.days %}
+    <li>
+      <a class="day-link" href="{{ r }}day/{{ d.date }}/">{{ fmt_short(d.date) }}</a>
+      <span class="chips">
+        {% for n in d.names %}<a class="chip chip-{{ chip_class(n) }}" href="{{ r }}name/{{ slugify(n) }}/">{{ n }}</a>{% endfor %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+</section>
+{% endfor %}
+{% endblock %}

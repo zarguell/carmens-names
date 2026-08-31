@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Stats — {{ site_name }}{% endblock %}
+{% block content %}
+<h1>The Numbers</h1>
+<p>{{ total_days }} days · {{ total_slots }} names served · {{ by_name | length }} unique names since {{ fmt_short(days[0].date) }}.</p>
+
+<section class="card">
+  <h2>🏆 Most common of all time</h2>
+  <table class="bar-table">
+    {% set top = most_common[:25] %}
+    {% for v in top %}
+    <tr>
+      <td class="rk">{{ loop.index }}</td>
+      <td class="nm"><a href="{{ r }}name/{{ v.slug }}/">{{ v.name }}</a></td>
+      <td class="bar"><span class="fill fill-{{ chip_class(v.name) }}" style="width: {{ (v.count / top[0].count * 100) | round | int }}%"></span></td>
+      <td class="ct">×{{ v.count }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+
+<section class="card">
+  <h2>📅 Most common in {{ year }}</h2>
+  <span class="chips">
+    {% for v in this_year %}<a class="chip chip-{{ chip_class(v.name) }}" href="{{ r }}name/{{ v.slug }}/">{{ v.name }} ×{{ v.count }}</a>{% endfor %}
+  </span>
+</section>
+
+<section class="card">
+  <h2>⏳ Longest absent — due for a comeback</h2>
+  <ul class="day-list">
+    {% for v in dormant %}
+    <li><a class="chip chip-{{ chip_class(v.name) }}" href="{{ r }}name/{{ v.slug }}/">{{ v.name }}</a>
+        <span class="meta">last {{ fmt_date(v.last) }} · {{ pl(v.days_since, "day") }} ago</span></li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="card">
+  <h2>🙈 Never called</h2>
+  <p>Out of {{ master_total }} names on our <abbr title="US Social Security Administration national baby-names dataset (public domain)">master name list</abbr>,
+     <b>{{ never_total }}</b> have never been a Name of the Day. The most famous shut-outs:</p>
+  <span class="chips">
+    {% for v in never %}<span class="chip plain ghost">{{ v.name }}</span>{% endfor %}
+  </span>
+</section>
+
+<section class="card">
+  <h2>💳 Classic duos</h2>
+  <ul class="day-list">
+    {% for d in duos %}
+    <li>{% for n in d.names %}<a class="chip chip-{{ chip_class(n) }}" href="{{ r }}name/{{ slugify(n) }}/">{{ n }}</a>{% endfor %}
+        <span class="meta">×{{ d.count }}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

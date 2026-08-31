@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}All Names — {{ site_name }}{% endblock %}
+{% block content %}
+<h1>Name Directory</h1>
+<p>Every name ever called — {{ by_name | length }} of them. Type to find yours:</p>
+<input id="filter" class="filter" type="search" placeholder="Type a name… e.g. Patricia" autocomplete="off"
+       aria-label="Filter names">
+<p id="noresults" class="note" hidden>Nothing matching — try the <a href="{{ r }}stats/index.html">never-called list</a>.</p>
+{% set letters = namespace() %}
+{% for v in names_sorted %}
+{% if v.name[0] != letters.l %}{% set letters.l = v.name[0] %}<h2 class="letter">{{ letters.l }}</h2>{% endif %}
+<div class="dir-item" data-name="{{ v.name }}">
+  <a class="chip chip-{{ chip_class(v.name) }}" href="{{ r }}name/{{ v.slug }}/">{{ v.name }}</a>
+  <span class="meta">×{{ v.count }} · last {{ fmt_short(v.last) }}</span>
+</div>
+{% endfor %}
+<script>
+const q = document.getElementById('filter'), items = [...document.querySelectorAll('.dir-item')], none = document.getElementById('noresults');
+q.addEventListener('input', () => {
+  const v = q.value.trim().toUpperCase(); let shown = 0;
+  for (const it of items) { const hit = it.dataset.name.includes(v); it.hidden = !hit; shown += hit; }
+  none.hidden = shown > 0;
+});
+</script>
+{% endblock %}

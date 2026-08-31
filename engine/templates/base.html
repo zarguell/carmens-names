@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ site_name }}{% endblock %}</title>
+<meta name="description" content="{% block meta %}Who got the free gelati? A daily tracker of the Names of the Day served by Carmen's Italian Ice.{% endblock %}">
+<link rel="alternate" type="application/rss+xml" title="{{ site_name }}" href="{{ base_url }}/rss.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chewy&family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ r }}style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="{{ r }}index.html"><span class="scoop scoop-red"></span><span class="scoop scoop-blue"></span><span class="scoop scoop-green"></span> Carmen's <em>Names of the Day</em></a>
+  <nav>
+    <a href="{{ r }}index.html">Today</a>
+    <a href="{{ r }}history/index.html">History</a>
+    <a href="{{ r }}names/index.html">Names</a>
+    <a href="{{ r }}stats/index.html">Stats</a>
+    <a href="{{ r }}rss.xml" class="rss">RSS</a>
+  </nav>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer>
+  <p>An unofficial fan tracker of the <a href="{{ facebook_page }}" rel="noopener">Names of the Day</a> posted by
+     <a href="{{ carmens_site }}" rel="noopener">Carmen's Italian Ice</a> on their public Facebook page.
+     Not affiliated with Carmen's Italian Ice. Free gelati rules are theirs — go be nice to them.</p>
+  <p>Updated daily · <a href="{{ r }}rss.xml">RSS</a> · <a href="{{ r }}names.json">names.json</a></p>
+</footer>
+</body>
+</html>

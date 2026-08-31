@@ -1,0 +1,15 @@
+# rendered site (built by CI from data/ + engine/ — never committed)
+/index.html
+/style.css
+/404.html
+/robots.txt
+/rss.xml
+/names.json
+/history/
+/day/
+/name/
+/names/
+/stats/
+
+__pycache__/
+*.pyc

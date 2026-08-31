@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Today's Names — {{ site_name }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="kicker">It's always ice cream o'clock — today's</p>
+  <h1>Names of the Day</h1>
+  <p class="served">{{ fmt_weekday(latest.date) }}, {{ fmt_date(latest.date) }}</p>
+  <div class="big-chips">
+    {% for n in latest.names %}<a class="chip chip-{{ chip_class(n) }} big" href="{{ r }}name/{{ slugify(n) }}/">{{ n }}</a>{% endfor %}
+  </div>
+  {% if latest.blocks | length > 1 %}
+  <p class="alsos">Also called: {% for b in latest.blocks[1:] %}{{ b | join(' & ') }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+  {% endif %}
+  <p class="freebie">If that's you — free gelati at <a href="{{ carmens_site }}" rel="noopener">Carmen's</a> today! 🍨</p>
+</section>
+
+<section class="stats-row">
+  <div class="stat"><b>{{ total_days }}</b><span>days tracked</span></div>
+  <div class="stat"><b>{{ by_name | length }}</b><span>names called</span></div>
+  <div class="stat"><b>{{ total_slots }}</b><span>names served</span></div>
+  <div class="stat"><b>since {{ fmt_short(days[0].date) }}</b><span>first scoop</span></div>
+</section>
+
+<section class="card">
+  <h2>Recently called</h2>
+  <ul class="day-list">
+    {% for d in recent %}
+    <li>
+      <a class="day-link" href="{{ r }}day/{{ d.date }}/">{{ fmt_weekday(d.date) }}, {{ fmt_short(d.date) }}</a>
+      <span class="chips">
+        {% for n in d.names %}<a class="chip chip-{{ chip_class(n) }}" href="{{ r }}name/{{ slugify(n) }}/">{{ n }}</a>{% endfor %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  <p><a class="btn" href="{{ r }}history/index.html">Browse the full archive →</a></p>
+</section>
+
+<section class="card teaser-row">
+  <div><h2>📊 Stats</h2><p>Most common names, longest absences, and the names never called.</p><a class="btn" href="{{ r }}stats/index.html">See the numbers</a></div>
+  <div><h2>📡 Subscribe</h2><p>Get every day's names in your feed reader.</p><a class="btn" href="{{ r }}rss.xml">RSS feed</a></div>
+</section>
+{% endblock %}

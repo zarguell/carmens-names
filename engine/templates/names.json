@@ -1,0 +1,11 @@
+{
+  "site": "{{ site_name }}",
+  "base_url": "{{ base_url }}",
+  "generated": "{{ generated }}",
+  "latest_date": "{{ latest.date }}",
+  "days": [
+  {%- for d in days %}
+    {"date": "{{ d.date }}", "names": [{{ d.names | map('tojson') | join(', ') }}]}{{ "," if not loop.last }}
+  {%- endfor %}
+  ]
+}
