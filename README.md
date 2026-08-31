@@ -1,6 +1,6 @@
 # Carmen's Names of the Day 🍧
 
-An unofficial, family-run tracker of the **Names of the Day** posted by
+An unofficial fan tracker of the **Names of the Day** posted by
 [Carmen's Italian Ice](https://carmensitalianice.com/) on their public
 [Facebook page](https://www.facebook.com/CarmensItalianIce/) — if it's your
 name, free gelati.
