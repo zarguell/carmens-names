@@ -305,7 +305,8 @@ def rss_pubdate(date_iso):
 
 
 def main():
-    return build()
+    build()
+    return 0
 
 
 if __name__ == "__main__":
