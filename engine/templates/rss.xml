@@ -3,17 +3,17 @@
 <channel>
 <title>{{ site_name }}</title>
 <link>{{ base_url }}/</link>
-<description>The daily Names of the Day from Carmen's Italian Ice — who got the free gelati?</description>
+<description>The daily Names of the Day from Carmen's Italian Ice. Who got the free gelati?</description>
 <language>en-us</language>
 <lastBuildDate>{{ generated }}</lastBuildDate>
 <atom:link href="{{ rss_url }}" rel="self" type="application/rss+xml"/>
 {%- for d in rss_days %}
 <item>
-<title>Names of the Day: {{ d.names | join(' & ') }} — {{ fmt_short(d.date) }}</title>
+<title>Names of the Day: {{ d.names | join(' & ') }} ({{ fmt_short(d.date) }})</title>
 <link>{{ base_url }}/day/{{ d.date }}/</link>
 <guid isPermaLink="true">{{ base_url }}/day/{{ d.date }}/</guid>
 <pubDate>{{ rss_pubdate(d.date) }}</pubDate>
-<description>{{ d.names | join(', ') }} — Carmen's Names of the Day for {{ fmt_date(d.date) }}.</description>
+<description>{{ d.names | join(', ') }}, the Names of the Day for {{ fmt_date(d.date) }}.</description>
 </item>
 {%- endfor %}
 </channel>

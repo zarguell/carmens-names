@@ -20,7 +20,7 @@ def _write(root, rel, content):
 
 
 def test_parse_day_text_blocks():
-    text = "# Names of the Day — 2026-08-31\nPEREZ & LYNN\n\n# comment\nLUCAS & EILEEN\n"
+    text = "# Names of the Day: 2026-08-31\nPEREZ & LYNN\n\n# comment\nLUCAS & EILEEN\n"
     assert ssg.parse_day_text(text) == [["PEREZ", "LYNN"], ["LUCAS", "EILEEN"]]
 
 
@@ -42,8 +42,8 @@ def test_split_fresh_style_dedup_in_parse():
 
 def test_build_end_to_end():
     with tempfile.TemporaryDirectory() as tmp:
-        _write(tmp, "data/days/2026-01-02.txt", "# Names of the Day — 2026-01-02\nJESSIE & PEREZ\n")
-        _write(tmp, "data/days/2026-01-03.txt", "# Names of the Day — 2026-01-03\nPEREZ & LYNN\n")
+        _write(tmp, "data/days/2026-01-02.txt", "# Names of the Day: 2026-01-02\nJESSIE & PEREZ\n")
+        _write(tmp, "data/days/2026-01-03.txt", "# Names of the Day: 2026-01-03\nPEREZ & LYNN\n")
         _write(tmp, "data/master-names.csv", "name,years_in_top1000,total_share\nJESSIE,250,9.9\nMARY,258,12.0\nNOTACALLEDNAME,200,5.0\n")
         out = os.path.join(tmp, "_site")
         written = ssg.build(repo_root=tmp, out_dir=out)

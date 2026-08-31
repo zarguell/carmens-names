@@ -1,8 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Today's Names — {{ site_name }}{% endblock %}
+{% block title %}Today's Names | {{ site_name }}{% endblock %}
 {% block content %}
 <section class="hero">
-  <p class="kicker">It's always ice cream o'clock — today's</p>
   <h1>Names of the Day</h1>
   <p class="served">{{ fmt_weekday(latest.date) }}, {{ fmt_date(latest.date) }}</p>
   <div class="big-chips">
@@ -11,7 +10,7 @@
   {% if latest.blocks | length > 1 %}
   <p class="alsos">Also called: {% for b in latest.blocks[1:] %}{{ b | join(' & ') }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
   {% endif %}
-  <p class="freebie">If that's you — free gelati at <a href="{{ carmens_site }}" rel="noopener">Carmen's</a> today! 🍨</p>
+  <p class="freebie">If that's you, free gelati at <a href="{{ carmens_site }}" rel="noopener">Carmen's</a> today.</p>
 </section>
 
 <section class="stats-row">
@@ -37,7 +36,7 @@
 </section>
 
 <section class="card teaser-row">
-  <div><h2>📊 Stats</h2><p>Most common names, longest absences, and the names never called.</p><a class="btn" href="{{ r }}stats/index.html">See the numbers</a></div>
-  <div><h2>📡 Subscribe</h2><p>Get every day's names in your feed reader.</p><a class="btn" href="{{ r }}rss.xml">RSS feed</a></div>
+  <div><h2>Stats</h2><p>Most common names, longest absences, and the names never called.</p><a class="btn" href="{{ r }}stats/index.html">See the numbers</a></div>
+  <div><h2>Subscribe</h2><p>Get every day's names in your feed reader.</p><a class="btn" href="{{ r }}rss.xml">RSS feed</a></div>
 </section>
 {% endblock %}

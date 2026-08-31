@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ fmt_date(day.date) }} — {{ site_name }}{% endblock %}
+{% block title %}{{ fmt_date(day.date) }} | {{ site_name }}{% endblock %}
 {% block content %}
 <nav class="pager">
   {% set pn = day_nav[day.date] %}
@@ -13,6 +13,6 @@
   <div class="big-chips">
     {% for n in day.names %}<a class="chip chip-{{ chip_class(n) }} big" href="{{ r }}name/{{ slugify(n) }}/">{{ n }}</a>{% endfor %}
   </div>
-  <p class="freebie">Free gelati at <a href="{{ carmens_site }}" rel="noopener">Carmen's</a> if it's you! 🍨</p>
+  <p class="freebie">Free gelati at <a href="{{ carmens_site }}" rel="noopener">Carmen's</a> if it's you.</p>
 </section>
 {% endblock %}

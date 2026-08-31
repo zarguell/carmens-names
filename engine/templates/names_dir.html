@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}All Names — {{ site_name }}{% endblock %}
+{% block title %}All Names | {{ site_name }}{% endblock %}
 {% block content %}
 <h1>Name Directory</h1>
-<p>Every name ever called — {{ by_name | length }} of them. Type to find yours:</p>
+<p>Every name ever called: {{ by_name | length }} of them. Type to find yours:</p>
 <input id="filter" class="filter" type="search" placeholder="Type a name… e.g. Patricia" autocomplete="off"
        aria-label="Filter names">
-<p id="noresults" class="note" hidden>Nothing matching — try the <a href="{{ r }}stats/index.html">never-called list</a>.</p>
+<p id="noresults" class="note" hidden>Nothing matching. Try the <a href="{{ r }}stats/index.html">never-called list</a>.</p>
 {% set letters = namespace() %}
 {% for v in names_sorted %}
 {% if v.name[0] != letters.l %}{% set letters.l = v.name[0] %}<h2 class="letter">{{ letters.l }}</h2>{% endif %}

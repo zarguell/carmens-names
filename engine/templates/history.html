@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}History — {{ site_name }}{% endblock %}
+{% block title %}History | {{ site_name }}{% endblock %}
 {% block content %}
 <h1>The Full Scoop</h1>
-<p>Every Names of the Day since {{ fmt_date(days[0].date) }} — {{ total_days }} days and counting.</p>
+<p>Every Names of the Day since {{ fmt_date(days[0].date) }}: {{ total_days }} days and counting.</p>
 {% for y in years %}
 <section class="card">
   <h2 class="year">{{ y.year }}</h2>
