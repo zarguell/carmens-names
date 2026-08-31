@@ -44,7 +44,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 ENGINE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(ENGINE)                       # repo root = Pages root
 TMPL_DIR = os.path.join(ENGINE, "templates")
-DAYS_DIR = os.path.join(ENGINE, "data", "days")
+DAYS_DIR = os.path.join(ROOT, "data", "days")
 MASTER_CSV = os.path.join(ENGINE, "data", "master-names.csv")
 
 BASE_URL = "https://zarguell.github.io/carmens-names"
