@@ -55,6 +55,7 @@ RSS_MAX_ITEMS = 60
 RECENT_ON_INDEX = 14
 DORMANT_TOP = 25
 NEVER_CALLED_TOP = 50
+MANIFEST_NAME = ".build-manifest"          # rendered-path ledger for stale pruning
 
 BLOCK_SPLIT = re.compile(r"\s*&\s*|\s+and\s+", re.IGNORECASE)
 DAY_LINE = re.compile(r"^[A-Z][A-Z '&\-]*$")
@@ -130,6 +131,42 @@ def load_master(path=None):
 
 def days_between(later_iso, earlier_iso):
     return (date.fromisoformat(later_iso) - date.fromisoformat(earlier_iso)).days
+
+
+def prune_stale(out, manifest_path, current):
+    """Delete files the previous build rendered but this one didn't.
+
+    The manifest (.build-manifest) lists every file the last build wrote.
+    Anything listed there but absent from `current` is a stale artifact
+    (e.g. a name page whose slug changed, or a day page whose source file
+    was removed). Empty parent directories are removed up to `out`.
+    First build after adoption has no manifest, so this is a no-op.
+    """
+    try:
+        with open(manifest_path) as f:
+            previous = [ln.strip() for ln in f if ln.strip()]
+    except FileNotFoundError:
+        return 0
+    current_set = set(current)
+    out_abs = os.path.abspath(out)
+    removed = 0
+    for rel in previous:
+        if rel in current_set:
+            continue
+        p = os.path.abspath(os.path.join(out_abs, rel))
+        if not p.startswith(out_abs + os.sep):
+            continue                      # path escape guard, never touch outside out
+        if os.path.isfile(p):
+            os.unlink(p)
+            removed += 1
+        d = os.path.dirname(p)
+        while d != out_abs and d.startswith(out_abs + os.sep):
+            try:
+                os.rmdir(d)               # succeeds only when empty
+            except OSError:
+                break
+            d = os.path.dirname(d)
+    return removed
 
 
 # ── presentation helpers (exposed to templates) ─────────────────────────────
@@ -284,7 +321,14 @@ def build(repo_root=None, out_dir=None):
         f.write(env.get_template("rss.xml").render(**c))
     written.append(dest)
 
-    print(f"rendered {len(written)} files "
+    # Prune artifacts of previous builds that this one didn't render, then
+    # record this build's manifest for the next run.
+    rel_written = sorted(os.path.relpath(p, out) for p in written)
+    pruned = prune_stale(out, os.path.join(out, MANIFEST_NAME), rel_written)
+    with open(os.path.join(out, MANIFEST_NAME), "w") as f:
+        f.write("\n".join(rel_written) + "\n")
+
+    print(f"rendered {len(written)} files, pruned {pruned} stale "
           f"({len(days)} days, {len(by_name)} names) -> {out}")
     return written
 

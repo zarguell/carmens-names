@@ -66,6 +66,47 @@ def test_build_end_to_end():
         assert nj["latest_date"] == "2026-01-03" and nj["days"][-1]["names"] == ["PEREZ", "LYNN"]
 
 
+def test_rebuild_prunes_stale_outputs():
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(tmp, "data/days/2026-01-02.txt", "# Names of the Day: 2026-01-02\nJESSIE & PEREZ\n")
+        _write(tmp, "data/master-names.csv", "name,years_in_top1000,total_share\nMARY,258,12.0\n")
+        out = os.path.join(tmp, "_site")
+        ssg.build(repo_root=tmp, out_dir=out)
+        assert os.path.exists(os.path.join(out, "name/perez/index.html"))
+        assert os.path.exists(os.path.join(out, "day/2026-01-02/index.html"))
+        # the day disappears from the data: its page must not survive the rebuild
+        os.unlink(os.path.join(tmp, "data/days/2026-01-02.txt"))
+        _write(tmp, "data/days/2026-01-03.txt", "# Names of the Day: 2026-01-03\nLYNN & MARY\n")
+        ssg.build(repo_root=tmp, out_dir=out)
+        assert not os.path.exists(os.path.join(out, "name/perez/index.html"))
+        assert not os.path.exists(os.path.join(out, "day/2026-01-02"))  # pruned, dir removed
+        assert os.path.exists(os.path.join(out, "name/lynn/index.html"))
+        assert os.path.exists(os.path.join(out, "rss.xml"))             # untouched outputs stay
+
+
+def test_rebuild_without_manifest_is_harmless():
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(tmp, "data/days/2026-01-02.txt", "SOLO\n")
+        out = os.path.join(tmp, "_site")
+        ssg.build(repo_root=tmp, out_dir=out)
+        ssg.build(repo_root=tmp, out_dir=out)  # manifest now exists; still fine
+        assert os.path.exists(os.path.join(out, "index.html"))
+
+
+def test_prune_never_escapes_out():
+    with tempfile.TemporaryDirectory() as tmp:
+        out = os.path.join(tmp, "_site")
+        os.makedirs(out)
+        manifest = os.path.join(out, ssg.MANIFEST_NAME)
+        with open(manifest, "w") as f:
+            f.write("../../outside.html\n")
+        outside = os.path.join(tmp, "outside.html")
+        with open(outside, "w") as f:
+            f.write("x")
+        assert ssg.prune_stale(out, manifest, []) == 0
+        assert os.path.exists(outside)  # path escape refused
+
+
 def test_build_skips_invalid_day_files():
     with tempfile.TemporaryDirectory() as tmp:
         _write(tmp, "data/days/not-a-date.txt", "GARBAGE\n")
