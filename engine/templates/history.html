@@ -12,9 +12,13 @@
     {% for d in m.days %}
     <li>
       <a class="day-link" href="{{ r }}day/{{ d.date }}/">{{ fmt_short(d.date) }}</a>
+      {% if d.closed %}
+      <span class="chip plain ghost">Closed</span>
+      {% else %}
       <span class="chips">
         {% for n in d.names %}<a class="chip chip-{{ chip_class(n) }}" href="{{ r }}name/{{ slugify(n) }}/">{{ n }}</a>{% endfor %}
       </span>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>

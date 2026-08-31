@@ -51,6 +51,8 @@ python -m http.server        # browse http://localhost:8000
 
 `data/days/YYYY-MM-DD.txt`: lines starting with `#` are comments; every
 other line is one Name-of-the-Day block (one or more names, joined with `&`).
+A day file whose only body line is `CLOSED` records a closure (the shop was
+closed; no names served):
 
 `data/master-names.csv`: the "never called" reference list. First names
 distilled from the [US SSA national baby-names dataset](https://www.ssa.gov/oact/babynames/backs.html)

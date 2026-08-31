@@ -2,6 +2,14 @@
 {% block title %}Today's Names | {{ site_name }}{% endblock %}
 {% block content %}
 <section class="hero">
+{% if latest_closed %}
+  <p class="kicker">Names of the Day</p>
+  <h1>The shop is closed</h1>
+  <p class="served">{{ fmt_weekday(latest.date) }}, {{ fmt_date(latest.date) }}</p>
+  {% if latest_names %}
+  <p class="freebie">No names today. Last called: <a class="chip chip-{{ chip_class(latest_names.names[0]) }}" href="{{ r }}name/{{ slugify(latest_names.names[0]) }}/">{{ latest_names.names | join(' & ') }}</a> on {{ fmt_date(latest_names.date) }}.</p>
+  {% endif %}
+{% else %}
   <h1>Names of the Day</h1>
   <p class="served">{{ fmt_weekday(latest.date) }}, {{ fmt_date(latest.date) }}</p>
   <div class="big-chips">
@@ -11,10 +19,12 @@
   <p class="alsos">Also called: {% for b in latest.blocks[1:] %}{{ b | join(' & ') }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
   {% endif %}
   <p class="freebie">If that's you, free gelati at <a href="{{ carmens_site }}" rel="noopener">Carmen's</a> today.</p>
+{% endif %}
 </section>
 
 <section class="stats-row">
   <div class="stat"><b>{{ total_days }}</b><span>days tracked</span></div>
+  <div class="stat"><b>{{ closed_days }}</b><span>closed days</span></div>
   <div class="stat"><b>{{ by_name | length }}</b><span>names called</span></div>
   <div class="stat"><b>{{ total_slots }}</b><span>names served</span></div>
   <div class="stat"><b>since {{ fmt_short(days[0].date) }}</b><span>first scoop</span></div>

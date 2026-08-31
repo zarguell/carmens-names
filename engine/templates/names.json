@@ -5,7 +5,7 @@
   "latest_date": "{{ latest.date }}",
   "days": [
   {%- for d in days %}
-    {"date": "{{ d.date }}", "names": [{{ d.names | map('tojson') | join(', ') }}]}{{ "," if not loop.last }}
+    {"date": "{{ d.date }}", "closed": {{ 'true' if d.closed else 'false' }}, "names": [{{ d.names | map('tojson') | join(', ') }}]}{{ "," if not loop.last }}
   {%- endfor %}
   ]
 }

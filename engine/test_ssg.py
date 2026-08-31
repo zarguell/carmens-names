@@ -107,6 +107,28 @@ def test_prune_never_escapes_out():
         assert os.path.exists(outside)  # path escape refused
 
 
+def test_closed_day_renders_closed_and_skips_rss():
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(tmp, "data/days/2026-01-01.txt", "# Names of the Day: 2026-01-01\nCLOSED\n")
+        _write(tmp, "data/days/2026-01-02.txt", "# Names of the Day: 2026-01-02\nJESSIE & PEREZ\n")
+        _write(tmp, "data/master-names.csv", "name,years_in_top1000,total_share\nMARY,258,12.0\n")
+        out = os.path.join(tmp, "_site")
+        ssg.build(repo_root=tmp, out_dir=out)
+        # latest tracked day is the closure: hero says so, no stale names shown
+        idx = open(os.path.join(out, "index.html")).read()
+        assert "The shop is closed" in idx and "JESSIE" not in idx.split("Recently called")[0]
+        day = open(os.path.join(out, "day/2026-01-01/index.html")).read()
+        assert "The shop is closed" in day
+        hist = open(os.path.join(out, "history/index.html")).read()
+        assert "Closed" in hist
+        rss = open(os.path.join(out, "rss.xml")).read()
+        assert "2026-01-01" not in rss  # closures are not feed items
+        assert "2026-01-02" in rss
+        nj = json.load(open(os.path.join(out, "names.json")))
+        closed = [d for d in nj["days"] if d["closed"]]
+        assert len(closed) == 1 and closed[0]["date"] == "2026-01-01"
+
+
 def test_build_skips_invalid_day_files():
     with tempfile.TemporaryDirectory() as tmp:
         _write(tmp, "data/days/not-a-date.txt", "GARBAGE\n")

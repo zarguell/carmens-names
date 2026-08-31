@@ -56,6 +56,7 @@ RECENT_ON_INDEX = 14
 DORMANT_TOP = 25
 NEVER_CALLED_TOP = 50
 MANIFEST_NAME = ".build-manifest"          # rendered-path ledger for stale pruning
+CLOSED_MARKER = "CLOSED"                   # sole body line marking a closure day
 
 BLOCK_SPLIT = re.compile(r"\s*&\s*|\s+and\s+", re.IGNORECASE)
 DAY_LINE = re.compile(r"^[A-Z][A-Z '&\-]*$")
@@ -63,20 +64,26 @@ DAY_LINE = re.compile(r"^[A-Z][A-Z '&\-]*$")
 
 # ── store ────────────────────────────────────────────────────────────────────
 def parse_day_text(text):
-    """Return the name blocks from one day file's body.
+    """Parse one day file's body -> {"closed": bool, "blocks": [[names], ...]}.
 
-    Lines starting with '#' (and blanks) are comments. Every other line is a
-    block: one or more names joined by '&' (e.g. "PEREZ & LYNN").
+    Lines starting with '#' (and blanks) are comments. A non-comment line
+    equal to CLOSED marks the day as a shop closure (no names served).
+    Every other non-comment line is a block: one or more names joined by
+    '&' (e.g. "PEREZ & LYNN").
     """
+    closed = False
     blocks = []
     for line in text.splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
             continue
+        if line.upper() == CLOSED_MARKER:
+            closed = True
+            continue
         names = [n.strip() for n in BLOCK_SPLIT.split(line.upper()) if n.strip()]
         if names:
             blocks.append(names)
-    return blocks
+    return {"closed": closed, "blocks": blocks}
 
 
 def load_days(days_dir=None):
@@ -88,10 +95,11 @@ def load_days(days_dir=None):
             continue
         d = fn[:10]
         date.fromisoformat(d)  # validates
-        blocks = parse_day_text(open(os.path.join(days_dir, fn)).read())
-        if blocks:
-            days.append({"date": d, "blocks": blocks,
-                         "names": [n for b in blocks for n in b]})
+        parsed = parse_day_text(open(os.path.join(days_dir, fn)).read())
+        if parsed["blocks"] or parsed["closed"]:
+            days.append({"date": d, "closed": parsed["closed"],
+                         "blocks": parsed["blocks"],
+                         "names": [n for b in parsed["blocks"] for n in b]})
     days.sort(key=lambda d: d["date"])
     return days
 
@@ -220,6 +228,8 @@ def build(repo_root=None, out_dir=None):
     if not days:
         raise SystemExit("no day data found — nothing to build")
     latest = days[-1]
+    latest_names_day = next((d for d in reversed(days) if not d["closed"]), None)
+    closed_days = sum(1 for d in days if d["closed"])
     stats = build_name_stats(days)
     master = load_master(master_path)
 
@@ -233,7 +243,7 @@ def build(repo_root=None, out_dir=None):
         rank_all = sorted(stats, key=lambda n: (-stats[n]["count"], n)).index(name) + 1
         by_name[name] = {
             "name": name, "slug": slugify(name), **s,
-            "days_since": days_between(latest["date"], s["last"]),
+            "days_since": days_between(latest_names_day["date"], s["last"]) if latest_names_day else 0,
             "rank": rank_all, "total_names": len(stats),
             "master_rank": master.get(name),
         }
@@ -270,6 +280,9 @@ def build(repo_root=None, out_dir=None):
     ctx = {
         "r": "",                                   # root-relative prefix (set per page)
         "latest": latest,
+        "latest_closed": latest["closed"],
+        "latest_names": latest_names_day,
+        "closed_days": closed_days,
         "recent": list(reversed(days[-RECENT_ON_INDEX:])),
         "days": days,
         "by_name": by_name,
@@ -314,7 +327,8 @@ def build(repo_root=None, out_dir=None):
         written.append(render("name.html", os.path.join("name", v["slug"], "index.html"), name=v))
 
     # RSS (absolute URLs; pubDate anchored to the scrape time, 12:45 US/Eastern)
-    rss_days = list(reversed(days[-RSS_MAX_ITEMS:]))
+    # RSS covers name days only; closures are not feed items
+    rss_days = [d for d in reversed(days[-RSS_MAX_ITEMS:]) if not d["closed"]]
     c = dict(ctx, r="", rss_days=rss_days, rss_url=url("rss.xml"))
     dest = os.path.join(out, "rss.xml")
     with open(dest, "w") as f:

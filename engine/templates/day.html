@@ -8,11 +8,18 @@
   {% if pn[1] %}<a href="{{ r }}day/{{ pn[1] }}/">{{ fmt_short(pn[1]) }} →</a>{% else %}<span></span>{% endif %}
 </nav>
 <section class="hero">
+{% if day.closed %}
+  <p class="kicker">Names of the Day</p>
+  <h1>The shop is closed</h1>
+  <p class="served">{{ fmt_weekday(day.date) }}, {{ fmt_date(day.date) }}</p>
+  <p class="freebie">No names were served this day.</p>
+{% else %}
   <p class="kicker">Names of the Day</p>
   <h1>{{ fmt_weekday(day.date) }}, {{ fmt_date(day.date) }}</h1>
   <div class="big-chips">
     {% for n in day.names %}<a class="chip chip-{{ chip_class(n) }} big" href="{{ r }}name/{{ slugify(n) }}/">{{ n }}</a>{% endfor %}
   </div>
   <p class="freebie">Free gelati at <a href="{{ carmens_site }}" rel="noopener">Carmen's</a> if it's you.</p>
+{% endif %}
 </section>
 {% endblock %}
