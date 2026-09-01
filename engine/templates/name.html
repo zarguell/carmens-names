@@ -24,13 +24,12 @@
 
 {% if name.family %}
 <section class="card">
-  <h2>The {{ name.family.head }} family</h2>
-  <p class="note">Other nicknames and spellings from the same family — might be the same folks,
-     might be different people. We only know what was posted.</p>
+  <h2>{{ name.family.head }} (and related names)</h2>
+  <p class="note">Other nicknames or spellings we've documented for {{ name.family.head }}.</p>
   <span class="chips">
     {% for v in name.family.others %}<a class="chip chip-{{ chip_class(v.name) }}" href="{{ r }}name/{{ v.slug }}/">{{ v.name }} ×{{ v.count }}</a>{% endfor %}
   </span>
-  <h3>Every time the {{ name.family.head }} family was selected</h3>
+  <h3>Every time a name related to {{ name.family.head }} was selected</h3>
   <ul class="day-list">
     {% for d in name.family.dates %}
     <li>

@@ -27,10 +27,10 @@
 </section>
 
 <section class="card">
-  <h2>Name families: same name, different hats</h2>
-  <p class="note">{{ families_total }} name families have two or more called variants — nicknames and
-     spellings grouped from our hand-curated <a href="https://github.com/zarguell/carmens-names/blob/main/data/name-families.csv">name-families.csv</a>.
-     A family means “might be the same crowd”, not “definitely the same person”.</p>
+  <h2>Nickname and Alternate Spelling coverage</h2>
+  <p class="note">{{ families_total }} names have two or more called variants (nicknames and
+     alternate spellings), grouped from our hand-curated
+     <a href="https://github.com/zarguell/carmens-names/blob/main/data/name-families.csv">name-families.csv</a>.</p>
   <ul class="day-list">
     {% for f in families %}
     <li>
@@ -62,7 +62,7 @@
     {% for v in never %}<span class="chip plain ghost">{{ v.name }}</span>{% endfor %}
   </span>
   {% if never_flipped_total %}
-  <p class="note">And {{ never_flipped_total }} more have never been posted themselves — but a nickname
+  <p class="note">And {{ never_flipped_total }} more have never been posted themselves, but a nickname
      or spelling of theirs has, so they get partial credit:</p>
   <span class="chips">
     {% for v in never_flipped %}<a class="chip plain ghost" href="{{ r }}name/{{ v.slug }}/">{{ v.name }} → {{ v.family }}</a>{% endfor %}

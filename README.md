@@ -16,8 +16,8 @@ name, free gelati.
   ~500 names (plus an A-Z directory with search)
 - **Stats**: most common names, longest absences, classic duos, and the
   most popular names that have *never* been called (checked against a master
-  list of first names) — plus **name families**, where nicknames and spellings
-  are grouped (Margaret, Peggy and Meg count as one crowd)
+  list of first names). Also **related names**: nicknames and alternate
+  spellings are grouped, so Margaret, Peggy and Meg count as one crowd
 
 ## How it works
 

@@ -18,7 +18,7 @@
 
 * { box-sizing: border-box; }
 
-/* the dir filter sets `hidden` on items whose display we override below —
+/* the dir filter sets `hidden` on items whose display we override below:
    without this guard, hidden elements stay visible */
 [hidden] { display: none !important; }
 
