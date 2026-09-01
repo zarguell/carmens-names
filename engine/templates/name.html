@@ -22,6 +22,17 @@
 <p class="note">On the SSA national name list, {{ name.name }} ranks #{{ name.master_rank }} for long-term popularity.</p>
 {% endif %}
 
+{% if name.family %}
+<section class="card">
+  <h2>The {{ name.family.head }} family</h2>
+  <p class="note">Other nicknames and spellings from the same family — might be the same folks,
+     might be different people. We only know what was posted.</p>
+  <span class="chips">
+    {% for v in name.family.others %}<a class="chip chip-{{ chip_class(v.name) }}" href="{{ r }}name/{{ v.slug }}/">{{ v.name }} ×{{ v.count }}</a>{% endfor %}
+  </span>
+</section>
+{% endif %}
+
 <section class="card">
   <h2>Every time {{ name.name }} was selected</h2>
   <span class="chips">

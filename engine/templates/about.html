@@ -47,6 +47,11 @@
         than guess a name, so the counts err on the side of accuracy.</li>
     <li><b>Duos count.</b> A day like "PEREZ &amp; LYNN" credits both names, so total names
         called can exceed the number of tracked days.</li>
+    <li><b>Nicknames stay linked, not merged.</b> Hand-curated
+        <code>data/name-families.csv</code> groups nicknames and spellings
+        (PEGGY and MEG count for the MARGARET family, MOHAMMED covers MOHAMED).
+        Family stats say "variants seen" — we can't know whether two posts were
+        the same person, so every name keeps its own page.</li>
   </ul>
   <p>Current archive: <b>{{ total_days }}</b> tracked days ·
      <b>{{ by_name | length }}</b> unique names ·

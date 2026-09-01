@@ -190,6 +190,47 @@ def test_name_and_index_dates_carry_year():
         assert "closed days" not in idx and "names served" not in idx  # only the 4 asked-for stats
 
 
+def test_name_families():
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(tmp, "data/days/2026-01-02.txt", "TED & MARGARET\n")
+        _write(tmp, "data/days/2026-01-03.txt", "PEGGY\n")
+        _write(tmp, "data/days/2026-01-04.txt", "LYNN\n")
+        _write(tmp, "data/master-names.csv",
+               "name,years_in_top1000,total_share\n"
+               "EDWARD,100,9.0\nTHEODORE,150,8.0\nPEG,300,4.0\nDICK,400,3.0\n")
+        _write(tmp, "data/name-families.csv",
+               "family,variant\n"
+               "EDWARD,ED\nTHEODORE,ED\n"      # shared variant merges both
+               "EDWARD,TED\nTHEODORE,TED\n"
+               "MARGARET,PEGGY\nMARGARET,PEG\n")
+        # union-find: ED/TED merge EDWARD+THEODORE into one component
+        master = {"EDWARD": 100, "THEODORE": 150, "PEG": 300, "DICK": 400}
+        fam = ssg.load_families("/nonexistent.csv", master)
+        assert fam == {}                                       # missing file is fine
+        fam = ssg.load_families(os.path.join(tmp, "data", "name-families.csv"), master)
+        assert fam["EDWARD"] == fam["THEODORE"] == fam["TED"]
+        assert fam["MARGARET"] == fam["PEGGY"] == fam["PEG"]
+
+        out = os.path.join(tmp, "_site")
+        ssg.build(repo_root=tmp, out_dir=out)
+        stats = open(os.path.join(out, "stats/index.html")).read()
+        assert "Name families" in stats
+        assert "×2 total · 2 variants" in stats                 # margaret family row
+        # never-called flips: PEG covered by called PEGGY; DICK stays shut out
+        assert "partial credit" in stats and "→ MARGARET" in stats and "→ DICK" not in stats
+        # family card on a member page links its kin
+        margaret = open(os.path.join(out, "name/margaret/index.html")).read()
+        assert "The MARGARET family" in margaret and "name/peggy/" in margaret
+        # TED's merge with EDWARD/THEODORE surfaces in the flips (TED is the
+        # only *called* member, so the family itself gets no stats card)
+        assert "EDWARD → TED" in stats and "THEODORE → TED" in stats
+        ted = open(os.path.join(out, "name/ted/index.html")).read()
+        assert "The TED family" not in ted
+        # a name with no family renders no family card
+        solo = open(os.path.join(out, "name/lynn/index.html")).read()
+        assert "The LYNN family" not in solo
+
+
 def main():
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]

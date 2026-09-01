@@ -182,6 +182,36 @@ def load_master(path=None):
     return ranks
 
 
+def load_families(path, master):
+    """name-families.csv (family,variant rows) -> {name: component_key}.
+
+    Rows sharing any name are unioned into one family (e.g. TED under both
+    EDWARD and THEODORE merges the two). The component key is just the
+    union-find root — the display head is chosen later, among the family's
+    *called* members, by master rank. Missing file -> no families.
+    """
+    if not os.path.exists(path):
+        return {}
+    parent = {}
+
+    def find(x):
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    with open(path) as f:
+        next(f)  # header
+        for row in csv.reader(f):
+            if len(row) >= 2 and row[0].strip() and row[1].strip():
+                a, b = row[0].strip().upper(), row[1].strip().upper()
+                ra, rb = find(a), find(b)
+                if ra != rb:
+                    parent[rb] = ra
+    return {n: find(n) for n in parent}
+
+
 def days_between(later_iso, earlier_iso):
     return (date.fromisoformat(later_iso) - date.fromisoformat(earlier_iso)).days
 
@@ -282,6 +312,16 @@ def build(repo_root=None, out_dir=None):
     closed_days = sum(1 for d in days if d["closed"])
     stats = build_name_stats(days)
     master = load_master(master_path)
+    fam = load_families(os.path.join(repo_root, "data", "name-families.csv"), master)
+
+    # family aggregates over *called* names; the display head is the called
+    # member with the best master rank, so every head links to a real page
+    fam_members = collections.defaultdict(dict)
+    for n, s in stats.items():
+        fam_members[fam.get(n, n)][n] = s["count"]
+
+    def fam_head(comp):
+        return min(fam_members[comp], key=lambda m: (master.get(m, 10**9), m))
 
     def url(rel):
         return f"{BASE_URL}/{rel}"
@@ -291,18 +331,46 @@ def build(repo_root=None, out_dir=None):
     for name in sorted(stats):
         s = stats[name]
         rank_all = sorted(stats, key=lambda n: (-stats[n]["count"], n)).index(name) + 1
-        by_name[name] = {
+        entry = {
             "name": name, "slug": slugify(name), **s,
             "days_since": days_between(latest_names_day["date"], s["last"]) if latest_names_day else 0,
             "rank": rank_all, "total_names": len(stats),
             "master_rank": master.get(name),
         }
+        comp = fam.get(name, name)
+        if len(fam_members.get(comp, {})) >= 2:
+            entry["family"] = {
+                "head": fam_head(comp),
+                "others": [{"name": n, "slug": slugify(n), "count": c}
+                           for n, c in sorted(fam_members[comp].items(),
+                                              key=lambda kv: (-kv[1], kv[0]))
+                           if n != name],
+            }
+        by_name[name] = entry
 
     never = [
         {"name": n, "master_rank": r}
         for n, r in sorted(master.items(), key=lambda kv: kv[1])
         if n not in stats
     ]
+    # master names never posted themselves, but a family member was called
+    never_flipped = sorted(
+        ({"name": v["name"], "family": fam_head(fam[v["name"]]),
+          "slug": slugify(fam_head(fam[v["name"]]))}
+         for v in never if v["name"] in fam and fam_members.get(fam[v["name"]])),
+        key=lambda v: (v["family"], v["name"]))
+    families = []
+    for comp, members in fam_members.items():
+        if len(members) < 2:
+            continue
+        families.append({
+            "head": fam_head(comp), "slug": slugify(fam_head(comp)),
+            "total": sum(members.values()), "variants": len(members),
+            "members": [{"name": n, "slug": slugify(n), "count": c}
+                        for n, c in sorted(members.items(),
+                                           key=lambda kv: (-kv[1], kv[0]))],
+        })
+    families.sort(key=lambda f: (-f["total"], f["head"]))
     dormant = sorted(by_name.values(), key=lambda v: (-v["days_since"], v["name"]))
     duos = collections.Counter(
         tuple(sorted(b)) for d in days for b in d["blocks"] if len(b) == 2)
@@ -338,6 +406,10 @@ def build(repo_root=None, out_dir=None):
         "dormant": dormant[:DORMANT_TOP],
         "never": never[:NEVER_CALLED_TOP],
         "never_total": len(never),
+        "never_flipped": never_flipped,
+        "never_flipped_total": len(never_flipped),
+        "families": families[:15],
+        "families_total": len(families),
         "master_total": len(master),
         "duos": [{"names": list(k), "count": c} for k, c in duos.most_common(5)],
         "total_days": len(days),

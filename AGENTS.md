@@ -75,6 +75,13 @@ A missing day means the post couldn't be recovered — it is **not** a closure
 blanks over incorrect — never guess a name. Keep the one-file-per-day format
 exact; git history of `data/` is the audit trail.
 
+Nickname/spelling families live in `data/name-families.csv` (`family,variant`
+rows, unioned at build time — rows sharing any name merge into one family).
+The display head is the called member with the best master rank, so heads
+always link to a real page. Keep modern standalone names out of merges
+(LIAM is not WILLIAM, BELLA is not ISABELLA); a family means "variants
+seen", never "same person".
+
 ## Verify UI changes in a browser
 
 The contract tests check HTML strings, not rendered behavior. Anything
