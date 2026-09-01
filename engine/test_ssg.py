@@ -1,7 +1,7 @@
 """Contract tests for the Carmen's Names of the Day static site generator.
 
-Run: python3 engine/test_ssg.py   (no pytest needed — mirrors tia-n-list's
-engine test style so the CI workflow stays dependency-light)
+Run: python3 engine/test_ssg.py   (runs standalone — every test_* function
+executes; also collectable by pytest)
 """
 import json
 import os
@@ -21,12 +21,13 @@ def _write(root, rel, content):
 
 def test_parse_day_text_blocks():
     text = "# Names of the Day: 2026-08-31\nPEREZ & LYNN\n\n# comment\nLUCAS & EILEEN\n"
-    assert ssg.parse_day_text(text) == [["PEREZ", "LYNN"], ["LUCAS", "EILEEN"]]
+    assert ssg.parse_day_text(text) == {"closed": False,
+                                        "blocks": [["PEREZ", "LYNN"], ["LUCAS", "EILEEN"]]}
 
 
 def test_parse_day_text_single_name_and_case():
-    assert ssg.parse_day_text("SOLO\n") == [["SOLO"]]
-    assert ssg.parse_day_text("ann & bob\n") == [["ANN", "BOB"]]
+    assert ssg.parse_day_text("SOLO\n")["blocks"] == [["SOLO"]]
+    assert ssg.parse_day_text("ann & bob\n")["blocks"] == [["ANN", "BOB"]]
 
 
 def test_slugify_deterministic_and_safe():
@@ -37,7 +38,7 @@ def test_slugify_deterministic_and_safe():
 
 def test_split_fresh_style_dedup_in_parse():
     text = "PEREZ & LYNN\nPEREZ & LYNN\nPEREZ  &  LYNN\n"
-    assert ssg.parse_day_text(text) == [["PEREZ", "LYNN"]] * 3  # blocks kept; dedup is at file level
+    assert ssg.parse_day_text(text)["blocks"] == [["PEREZ", "LYNN"]] * 3  # blocks kept; dedup is at file level
 
 
 def test_build_end_to_end():
@@ -49,7 +50,8 @@ def test_build_end_to_end():
         written = ssg.build(repo_root=tmp, out_dir=out)
         rel = {os.path.relpath(p, out) for p in written}
         for expected in ("index.html", "rss.xml", "names.json", "style.css",
-                         "history/index.html", "stats/index.html", "names/index.html",
+                         "history/index.html", "history/2026-01/index.html",
+                         "about/index.html", "stats/index.html", "names/index.html",
                          "day/2026-01-03/index.html", "name/perez/index.html",
                          "name/jessie/index.html", "name/lynn/index.html"):
             assert expected in rel, f"missing {expected}; got {sorted(rel)}"
@@ -109,24 +111,26 @@ def test_prune_never_escapes_out():
 
 def test_closed_day_renders_closed_and_skips_rss():
     with tempfile.TemporaryDirectory() as tmp:
-        _write(tmp, "data/days/2026-01-01.txt", "# Names of the Day: 2026-01-01\nCLOSED\n")
-        _write(tmp, "data/days/2026-01-02.txt", "# Names of the Day: 2026-01-02\nJESSIE & PEREZ\n")
+        _write(tmp, "data/days/2026-01-01.txt", "# Names of the Day: 2026-01-01\nJESSIE & PEREZ\n")
+        _write(tmp, "data/days/2026-01-02.txt", "# Names of the Day: 2026-01-02\nCLOSED\n")
         _write(tmp, "data/master-names.csv", "name,years_in_top1000,total_share\nMARY,258,12.0\n")
         out = os.path.join(tmp, "_site")
         ssg.build(repo_root=tmp, out_dir=out)
-        # latest tracked day is the closure: hero says so, no stale names shown
+        # latest tracked day is the closure: hero says so, and no stale
+        # big-chip names are promoted before the recent list (the freebie's
+        # "last called" mention is intentional)
         idx = open(os.path.join(out, "index.html")).read()
-        assert "The shop is closed" in idx and "JESSIE" not in idx.split("Recently called")[0]
-        day = open(os.path.join(out, "day/2026-01-01/index.html")).read()
+        assert "The shop is closed" in idx and "big-chips" not in idx.split("Recently called")[0]
+        day = open(os.path.join(out, "day/2026-01-02/index.html")).read()
         assert "The shop is closed" in day
         hist = open(os.path.join(out, "history/index.html")).read()
         assert "Closed" in hist
         rss = open(os.path.join(out, "rss.xml")).read()
-        assert "2026-01-01" not in rss  # closures are not feed items
-        assert "2026-01-02" in rss
+        assert "2026-01-02" not in rss  # closures are not feed items
+        assert "2026-01-01" in rss
         nj = json.load(open(os.path.join(out, "names.json")))
         closed = [d for d in nj["days"] if d["closed"]]
-        assert len(closed) == 1 and closed[0]["date"] == "2026-01-01"
+        assert len(closed) == 1 and closed[0]["date"] == "2026-01-02"
 
 
 def test_build_skips_invalid_day_files():
@@ -139,4 +143,61 @@ def test_build_skips_invalid_day_files():
         assert not os.path.exists(os.path.join(out, "day/not-a-date"))
 
 
-print("all ssg contract tests passed")
+def test_history_calendar_pages_and_nav():
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(tmp, "data/days/2025-12-15.txt", "MARY\n")
+        _write(tmp, "data/days/2026-01-01.txt", "# c\nCLOSED\n")
+        _write(tmp, "data/days/2026-01-02.txt", "JESSIE & PEREZ\n")
+        _write(tmp, "data/master-names.csv", "name,years_in_top1000,total_share\nMARY,258,12.0\n")
+        out = os.path.join(tmp, "_site")
+        ssg.build(repo_root=tmp, out_dir=out)
+        # latest month lives at /history/, every tracked month gets a page
+        hist = open(os.path.join(out, "history/index.html")).read()
+        assert "January 2026" in hist and "cal-grid" in hist
+        dec = open(os.path.join(out, "history/2025-12/index.html")).read()
+        jan = open(os.path.join(out, "history/2026-01/index.html")).read()
+        assert "December 2025" in dec and "MARY" in dec
+        assert 'href="../../history/2025-12/"' in jan          # prev-month link
+        assert 'href="../../history/2026-01/"' in dec          # next-month link
+        assert "Closed" in jan                                 # closure cell
+        assert "2025" in jan and "2026" in jan                 # year tabs
+        # a day with no data renders as an empty cell, not a link
+        assert 'class="cal-cell none"' in jan and "cal-cell pad" in jan
+
+
+def test_about_page_renders():
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(tmp, "data/days/2026-01-02.txt", "JESSIE & PEREZ\n")
+        _write(tmp, "data/master-names.csv", "name,years_in_top1000,total_share\nMARY,258,12.0\n")
+        out = os.path.join(tmp, "_site")
+        ssg.build(repo_root=tmp, out_dir=out)
+        about = open(os.path.join(out, "about/index.html")).read()
+        assert "launched in 2026" in about and "backfill" in about.lower()
+        assert "Jan 2, 2026" in about                          # first tracked date, with year
+
+
+def test_name_and_index_dates_carry_year():
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(tmp, "data/days/2026-01-02.txt", "JESSIE & PEREZ\n")
+        _write(tmp, "data/days/2026-01-03.txt", "PEREZ & LYNN\n")
+        _write(tmp, "data/master-names.csv", "name,years_in_top1000,total_share\nMARY,258,12.0\n")
+        out = os.path.join(tmp, "_site")
+        ssg.build(repo_root=tmp, out_dir=out)
+        perez = open(os.path.join(out, "name/perez/index.html")).read()
+        assert "Jan 2, 2026" in perez and "Jan 3, 2026" in perez   # first/last called
+        idx = open(os.path.join(out, "index.html")).read()
+        assert "first date tracked" in idx and "Jan 2, 2026" in idx
+        assert "closed days" not in idx and "names served" not in idx  # only the 4 asked-for stats
+
+
+def main():
+    tests = [v for k, v in sorted(globals().items())
+             if k.startswith("test_") and callable(v)]
+    for t in tests:
+        t()
+    print(f"all {len(tests)} ssg contract tests passed")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
