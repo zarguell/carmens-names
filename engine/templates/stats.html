@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Stats | {{ site_name }}{% endblock %}
 {% block content %}
-<h1>The Numbers</h1>
+<h1>Stats</h1>
 <p>{{ total_days }} days · {{ total_slots }} names served · {{ by_name | length }} unique names since {{ fmt_short(days[0].date) }}.</p>
 
 <section class="card">
