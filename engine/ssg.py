@@ -339,12 +339,19 @@ def build(repo_root=None, out_dir=None):
         }
         comp = fam.get(name, name)
         if len(fam_members.get(comp, {})) >= 2:
+            day_names = collections.defaultdict(list)
+            for n in fam_members[comp]:
+                for iso in stats[n]["dates"]:
+                    day_names[iso].append(n)
             entry["family"] = {
                 "head": fam_head(comp),
                 "others": [{"name": n, "slug": slugify(n), "count": c}
                            for n, c in sorted(fam_members[comp].items(),
                                               key=lambda kv: (-kv[1], kv[0]))
                            if n != name],
+                # every day any family variant was called; chips show who
+                "dates": [{"date": iso, "names": sorted(ns)}
+                          for iso, ns in sorted(day_names.items())],
             }
         by_name[name] = entry
 

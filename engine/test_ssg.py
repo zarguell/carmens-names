@@ -218,9 +218,13 @@ def test_name_families():
         assert "×2 total · 2 variants" in stats                 # margaret family row
         # never-called flips: PEG covered by called PEGGY; DICK stays shut out
         assert "partial credit" in stats and "→ MARGARET" in stats and "→ DICK" not in stats
-        # family card on a member page links its kin
+        # family card on a member page links its kin, with the family day history
         margaret = open(os.path.join(out, "name/margaret/index.html")).read()
         assert "The MARGARET family" in margaret and "name/peggy/" in margaret
+        assert "family was selected" in margaret
+        assert "Jan 3, 2026" in margaret and "name/peggy/" in margaret  # PEGGY's day
+        # a day with two family members shows both on one row
+        assert "2026-01-02" in margaret  # margaret's own day, from TED & MARGARET
         # TED's merge with EDWARD/THEODORE surfaces in the flips (TED is the
         # only *called* member, so the family itself gets no stats card)
         assert "EDWARD → TED" in stats and "THEODORE → TED" in stats

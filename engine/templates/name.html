@@ -30,6 +30,17 @@
   <span class="chips">
     {% for v in name.family.others %}<a class="chip chip-{{ chip_class(v.name) }}" href="{{ r }}name/{{ v.slug }}/">{{ v.name }} ×{{ v.count }}</a>{% endfor %}
   </span>
+  <h3>Every time the {{ name.family.head }} family was selected</h3>
+  <ul class="day-list">
+    {% for d in name.family.dates %}
+    <li>
+      <a class="day-link" href="{{ r }}day/{{ d.date }}/">{{ fmt_med(d.date) }}</a>
+      <span class="chips">
+        {% for n in d.names %}<a class="chip chip-{{ chip_class(n) }}" href="{{ r }}name/{{ slugify(n) }}/">{{ n }}</a>{% endfor %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
 </section>
 {% endif %}
 
