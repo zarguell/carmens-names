@@ -10,7 +10,9 @@
 /name/
 /names/
 /stats/
+/about/
 
 __pycache__/
 *.pyc
+/.venv/
 /.build-manifest

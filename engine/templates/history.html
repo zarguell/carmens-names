@@ -1,28 +1,59 @@
 {% extends "base.html" %}
-{% block title %}History | {{ site_name }}{% endblock %}
+{% block title %}{{ hm.label }} {{ hm.year }} | History | {{ site_name }}{% endblock %}
 {% block content %}
 <h1>The Full Scoop</h1>
-<p>Every Names of the Day since {{ fmt_date(days[0].date) }}: {{ total_days }} days and counting.</p>
-{% for y in years %}
-<section class="card">
-  <h2 class="year">{{ y.year }}</h2>
-  {% for m in y.months %}
-  <h3>{{ m.label }}</h3>
-  <ul class="day-list">
-    {% for d in m.days %}
-    <li>
-      <a class="day-link" href="{{ r }}day/{{ d.date }}/">{{ fmt_short(d.date) }}</a>
-      {% if d.closed %}
-      <span class="chip plain ghost">Closed</span>
-      {% else %}
-      <span class="chips">
-        {% for n in d.names %}<a class="chip chip-{{ chip_class(n) }}" href="{{ r }}name/{{ slugify(n) }}/">{{ n }}</a>{% endfor %}
-      </span>
-      {% endif %}
-    </li>
+<p>Every Names of the Day since {{ fmt_date(days[0].date) }}: {{ total_days }} days and counting.
+   Flip between months and years below.</p>
+
+{% set mon_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] %}
+<nav class="cal-nav" aria-label="Archive navigation">
+  <div class="cal-years">
+    {% for y in year_links %}
+    <a href="{{ r }}history/{{ y.first }}/" {% if y.year == hm.year %}class="cur" aria-current="true"{% endif %}>{{ y.year }}</a>
     {% endfor %}
-  </ul>
-  {% endfor %}
+  </div>
+  <div class="cal-months">
+    {% for m in range(1, 13) %}
+    {% set mk = hm.year ~ "-" ~ ("%02d" | format(m)) %}
+    {% if mk in month_keys %}
+    <a href="{{ r }}history/{{ mk }}/" {% if mk == hm.key %}class="cur" aria-current="true"{% endif %}>{{ mon_names[m - 1] }}</a>
+    {% else %}
+    <span class="off">{{ mon_names[m - 1] }}</span>
+    {% endif %}
+    {% endfor %}
+  </div>
+  <div class="cal-pager">
+    {% if hm.prev %}<a class="ghost-btn" href="{{ r }}history/{{ hm.prev }}/">← {{ fmt_date(hm.prev ~ "-01", "%b %Y") }}</a>{% else %}<span></span>{% endif %}
+    <h2 class="cal-title">{{ hm.label }} {{ hm.year }}</h2>
+    {% if hm.next %}<a class="ghost-btn" href="{{ r }}history/{{ hm.next }}/">{{ fmt_date(hm.next ~ "-01", "%b %Y") }} →</a>{% else %}<span></span>{% endif %}
+  </div>
+</nav>
+
+<section class="card cal">
+  <div class="cal-grid">
+    {% for w in ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] %}
+    <div class="cal-head">{{ w }}</div>
+    {% endfor %}
+    {% for week in hm.weeks %}
+    {% for cell in week %}
+    {% if cell is none %}
+    <div class="cal-cell pad"></div>
+    {% elif cell.day %}
+    <a class="cal-cell has-names{% if cell.day.closed %} closed{% endif %}" href="{{ r }}day/{{ cell.day.date }}/">
+      <span class="cal-day">{{ cell.num }}</span>
+      <span class="cal-names">
+        {%- if cell.day.closed %}Closed
+        {%- else %}{% for n in cell.day.names %}{{ n }}{% if not loop.last %} · {% endif %}{% endfor %}{% endif %}
+      </span>
+    </a>
+    {% else %}
+    <div class="cal-cell none"><span class="cal-day">{{ cell.num }}</span></div>
+    {% endif %}
+    {% endfor %}
+    {% endfor %}
+  </div>
 </section>
-{% endfor %}
+
+<p class="note">Gray days have no data — that usually means the post couldn't be
+recovered, not that the shop was closed. See <a href="{{ r }}about/index.html">About</a> for how the archive was built.</p>
 {% endblock %}

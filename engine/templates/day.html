@@ -4,7 +4,7 @@
 <nav class="pager">
   {% set pn = day_nav[day.date] %}
   {% if pn[0] %}<a href="{{ r }}day/{{ pn[0] }}/">← {{ fmt_short(pn[0]) }}</a>{% else %}<span></span>{% endif %}
-  <a href="{{ r }}history/index.html">History</a>
+  <a href="{{ r }}history/{{ day.date[:7] }}/">{{ fmt_date(day.date[:7] ~ "-01", "%b %Y") }}</a>
   {% if pn[1] %}<a href="{{ r }}day/{{ pn[1] }}/">{{ fmt_short(pn[1]) }} →</a>{% else %}<span></span>{% endif %}
 </nav>
 <section class="hero">

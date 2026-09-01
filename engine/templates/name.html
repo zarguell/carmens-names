@@ -14,8 +14,8 @@
 <section class="stats-row">
   <div class="stat"><b>{{ name.count }}</b><span>times called</span></div>
   <div class="stat"><b>#{{ name.rank }}</b><span>of {{ name.total_names }} names</span></div>
-  <div class="stat"><b>{{ fmt_short(name.first) }}</b><span>first called</span></div>
-  <div class="stat"><b>{{ fmt_short(name.last) }}</b><span>last called</span></div>
+  <div class="stat"><b class="date">{{ fmt_med(name.first) }}</b><span>first called</span></div>
+  <div class="stat"><b class="date">{{ fmt_med(name.last) }}</b><span>last called</span></div>
 </section>
 
 {% if name.master_rank %}
@@ -25,7 +25,7 @@
 <section class="card">
   <h2>Every time {{ name.name }} was selected</h2>
   <span class="chips">
-    {% for d in name.dates %}<a class="chip plain" href="{{ r }}day/{{ d }}/">{{ fmt_short(d) }}</a>{% endfor %}
+    {% for d in name.dates %}<a class="chip plain" href="{{ r }}day/{{ d }}/">{{ fmt_med(d) }}</a>{% endfor %}
   </span>
 </section>
 <p><a class="btn" href="{{ r }}names/index.html">← All names</a></p>

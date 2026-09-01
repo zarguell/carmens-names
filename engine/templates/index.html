@@ -24,10 +24,9 @@
 
 <section class="stats-row">
   <div class="stat"><b>{{ total_days }}</b><span>days tracked</span></div>
-  <div class="stat"><b>{{ closed_days }}</b><span>closed days</span></div>
-  <div class="stat"><b>{{ by_name | length }}</b><span>names called</span></div>
-  <div class="stat"><b>{{ total_slots }}</b><span>names served</span></div>
-  <div class="stat"><b>since {{ fmt_short(days[0].date) }}</b><span>first scoop</span></div>
+  <div class="stat"><b>{{ by_name | length }}</b><span>unique names called</span></div>
+  <div class="stat"><b>{{ total_slots }}</b><span>total names called</span></div>
+  <div class="stat"><b class="date">{{ fmt_med(days[0].date) }}</b><span>first date tracked</span></div>
 </section>
 
 <section class="card">

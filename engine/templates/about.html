@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}About | {{ site_name }}{% endblock %}
+{% block meta %}How this archive of Carmen's Italian Ice Names of the Day is built: a daily scraper, plain-text data, and an honest backfill.{% endblock %}
+{% block content %}
+<h1>About this tracker</h1>
+
+<section class="card">
+  <h2>What this is</h2>
+  <p>An unofficial fan tracker of the <a href="{{ facebook_page }}" rel="noopener">Names of the Day</a>
+     posted by <a href="{{ carmens_site }}" rel="noopener">Carmen's Italian Ice</a> on their public
+     Facebook page. Every day the shop picks a name (or two — duos get both) and announces it;
+     if it's your name, you get a free gelati. This site answers one question over the whole
+     archive: <b>when was a name last called — and how often?</b></p>
+</section>
+
+<section class="card">
+  <h2>How the data gets here</h2>
+  <p>The pipeline is deliberately boring:</p>
+  <ol>
+    <li><b>Scrape.</b> A small automation opens Carmen's public Facebook page once a day,
+        reads the Names of the Day post, and saves what it saw.</li>
+    <li><b>Commit.</b> Each day becomes one plain-text file in this repository —
+        <code>data/days/2026-08-31.txt</code> contains exactly <code>PEREZ &amp; LYNN</code>.
+        The data is human-readable, and every day is a diff you can audit in git.</li>
+    <li><b>Build.</b> On every push (plus a nightly rebuild), a GitHub Action runs a small
+        static site generator over those files and renders the pages you're browsing.</li>
+    <li><b>Publish.</b> The finished site is deployed to GitHub Pages. No database, no
+        tracking, no cookies — just files.</li>
+  </ol>
+</section>
+
+<section class="card">
+  <h2>Methodology: started in {{ year }}, backfilled with care</h2>
+  <p>This tracker <b>launched in {{ year }}</b>. To make the stats meaningful from day one, we
+     also went back through Carmen's public Facebook history and backfilled earlier Names of
+     the Day from the original posts and photos — as far back as
+     <b>{{ fmt_med(days[0].date) }}</b> — as completely as we could recover them.</p>
+  <p>A few honest caveats about that backfill:</p>
+  <ul>
+    <li><b>Missing ≠ closed.</b> A gray day in the <a href="{{ r }}history/index.html">archive</a>
+        means we couldn't recover that day's post (deleted, unavailable, or unreadable) —
+        it does <i>not</i> mean the shop was closed.</li>
+    <li><b>Closures are marked.</b> Days the shop announced a closure are recorded as
+        <i>closed</i> ({{ closed_days }} so far), and they count as tracked days but never
+        as name calls.</li>
+    <li><b>When in doubt, blank.</b> Where a post was ambiguous, we left the day blank rather
+        than guess a name, so the counts err on the side of accuracy.</li>
+    <li><b>Duos count.</b> A day like "PEREZ &amp; LYNN" credits both names, so total names
+        called can exceed the number of tracked days.</li>
+  </ul>
+  <p>Current archive: <b>{{ total_days }}</b> tracked days ·
+     <b>{{ by_name | length }}</b> unique names ·
+     <b>{{ total_slots }}</b> total names called ·
+     first tracked day <b>{{ fmt_med(days[0].date) }}</b>.</p>
+</section>
+
+<section class="card">
+  <h2>The "never called" list</h2>
+  <p>The <a href="{{ r }}stats/index.html">stats page</a> jokes about famous names that have
+     never won the free gelati. Those are checked against a master list of
+     {{ master_total }} first names distilled from the
+     <a href="https://www.ssa.gov/oact/babynames/backs.html" rel="noopener">US Social Security
+     Administration national baby-names dataset</a> (public domain) — so "never called" means
+     never in our archive, checked against a real census of names.</p>
+</section>
+
+<section class="card">
+  <h2>Credits &amp; disclaimer</h2>
+  <p>Names of the Day are chosen and posted by Carmen's Italian Ice; this site just keeps
+     score. It's an unofficial fan project — not affiliated with or endorsed by Carmen's
+     Italian Ice &amp; More — and the free gelati rules are entirely theirs, so go be nice
+     to them. All names belong to the lovely people who order gelati.</p>
+  <p>Found a day we got wrong or missed? The raw data lives in
+     <code>data/days/</code> in the repo — one file per day, easy to fix.</p>
+</section>
+{% endblock %}

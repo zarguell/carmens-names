@@ -18,7 +18,9 @@ Text store:
 Outputs:
   index.html               today's (latest tracked) names + recent days
   style.css                Carmen's-flavored theme
-  history/index.html       every day, grouped by year and month
+  history/index.html       calendar for the latest tracked month
+  history/<YYYY-MM>/       calendar for one month (year tabs + month tabs)
+  about/index.html         methodology, in website form
   day/<date>/index.html    permalink per day (RSS target)
   name/<slug>/index.html   per-name page: last called, times, all dates
   names/index.html         A-Z directory with client-side filter
@@ -30,6 +32,7 @@ Outputs:
 Usage: python3 engine/ssg.py   (from the repo root; also importable —
        build(repo_root, out_dir) is used by engine/test_ssg.py)
 """
+import calendar as calmod
 import collections
 import csv
 import html
@@ -102,6 +105,48 @@ def load_days(days_dir=None):
                          "names": [n for b in parsed["blocks"] for n in b]})
     days.sort(key=lambda d: d["date"])
     return days
+
+
+def build_month_index(days):
+    """Every tracked month -> list of dicts (ascending) for the calendar UI.
+
+    Each month carries a Sunday-first grid of weeks; every cell is None
+    (padding), or {"num": day-of-month, "day": day-dict-or-None} where a
+    missing day dict means "tracked nowhere — no data for that date".
+    prev/next are the adjacent *tracked* month keys (YYYY-MM).
+    """
+    by_ym = collections.defaultdict(dict)
+    for d in days:
+        by_ym[d["date"][:7]][d["date"]] = d
+    keys = sorted(by_ym)
+    months = []
+    for i, key in enumerate(keys):
+        y, m = int(key[:4]), int(key[5:7])
+        weeks = []
+        for week in calmod.Calendar(firstweekday=6).monthdayscalendar(y, m):
+            weeks.append([
+                None if dd == 0 else
+                {"num": dd, "day": by_ym[key].get(f"{y:04d}-{m:02d}-{dd:02d}")}
+                for dd in week
+            ])
+        months.append({
+            "key": key, "year": str(y), "num": m,
+            "label": calmod.month_name[m],
+            "days": list(by_ym[key].values()),
+            "weeks": weeks,
+            "prev": keys[i - 1] if i > 0 else None,
+            "next": keys[i + 1] if i + 1 < len(keys) else None,
+        })
+    return months
+
+
+def year_links_of(months):
+    """[{"year": "2023", "first": "2023-01"}, …] — one tab per tracked year."""
+    links = []
+    for m in months:
+        if not links or links[-1]["year"] != m["year"]:
+            links.append({"year": m["year"], "first": m["key"]})
+    return links
 
 
 def slugify(name):
@@ -186,6 +231,11 @@ def fmt_short(iso):
     return fmt_date(iso, "%b %-d")
 
 
+def fmt_med(iso):
+    """Short date that always carries the year: 'Jan 3, 2026'."""
+    return fmt_date(iso, "%b %-d, %Y")
+
+
 def fmt_weekday(iso):
     return fmt_date(iso, "%A")
 
@@ -219,7 +269,7 @@ def build(repo_root=None, out_dir=None):
     env.globals.update(
         site_name=SITE_NAME, base_url=BASE_URL,
         facebook_page=FACEBOOK_PAGE, carmens_site=CARMENS_SITE,
-        fmt_date=fmt_date, fmt_short=fmt_short, fmt_weekday=fmt_weekday,
+        fmt_date=fmt_date, fmt_short=fmt_short, fmt_med=fmt_med, fmt_weekday=fmt_weekday,
         chip_class=chip_class, pl=pl, slugify=slugify, generated=iso_now(),
         rss_pubdate=rss_pubdate,
     )
@@ -257,19 +307,10 @@ def build(repo_root=None, out_dir=None):
     duos = collections.Counter(
         tuple(sorted(b)) for d in days for b in d["blocks"] if len(b) == 2)
     year = latest["date"][:4]
-    # history grouped by year -> month for the archive page
-    years = []
-    for d in reversed(days):
-        y, m = d["date"][:4], d["date"][5:7]
-        ybox = next((y_ for y_ in years if y_["year"] == y), None)
-        if ybox is None:
-            ybox = {"year": y, "months": []}
-            years.append(ybox)
-        mbox = next((m_ for m_ in ybox["months"] if m_["num"] == m), None)
-        if mbox is None:
-            mbox = {"num": m, "label": fmt_date(d["date"], "%B"), "days": []}
-            ybox["months"].append(mbox)
-        mbox["days"].append(d)
+    # calendar UI: one page per tracked month, plus tabs data
+    months = build_month_index(days)
+    month_keys = {m["key"] for m in months}
+    year_links = year_links_of(months)
     # prev/next day permalinks
     day_nav = {}
     for i, d in enumerate(days):
@@ -287,7 +328,9 @@ def build(repo_root=None, out_dir=None):
         "days": days,
         "by_name": by_name,
         "names_sorted": sorted(by_name.values(), key=lambda v: v["name"]),
-        "years": years,
+        "months": months,
+        "month_keys": month_keys,
+        "year_links": year_links,
         "day_nav": day_nav,
         "most_common": sorted(by_name.values(), key=lambda v: (-v["count"], v["name"])),
         "this_year": [{"name": n, "slug": slugify(n), "count": c}
@@ -318,7 +361,12 @@ def build(repo_root=None, out_dir=None):
     written.append(render("404.html", "404.html"))
     written.append(render("robots.txt", "robots.txt"))
     written.append(render("names.json", "names.json"))
-    written.append(render("history.html", os.path.join("history", "index.html")))
+    written.append(render("about.html", os.path.join("about", "index.html")))
+    # history: calendar for the latest month at /history/, one page per month
+    written.append(render("history.html", os.path.join("history", "index.html"), hm=months[-1]))
+    for hm in months:
+        written.append(render("history.html",
+                              os.path.join("history", hm["key"], "index.html"), hm=hm))
     written.append(render("names_dir.html", os.path.join("names", "index.html")))
     written.append(render("stats.html", os.path.join("stats", "index.html")))
     for d in days:

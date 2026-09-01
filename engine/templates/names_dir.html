@@ -15,10 +15,19 @@
 </div>
 {% endfor %}
 <script>
-const q = document.getElementById('filter'), items = [...document.querySelectorAll('.dir-item')], none = document.getElementById('noresults');
+const q = document.getElementById('filter'), items = [...document.querySelectorAll('.dir-item')],
+      letters = [...document.querySelectorAll('h2.letter')], none = document.getElementById('noresults');
 q.addEventListener('input', () => {
   const v = q.value.trim().toUpperCase(); let shown = 0;
-  for (const it of items) { const hit = it.dataset.name.includes(v); it.hidden = !hit; shown += hit; }
+  for (const it of items) { const hit = it.dataset.name.includes(v); it.hidden = !hit; if (hit) shown++; }
+  for (const h of letters) {          // hide a letter heading when all its names are filtered out
+    let n = h.nextElementSibling, any = false;
+    while (n && !n.classList.contains('letter')) {
+      if (n.classList.contains('dir-item') && !n.hidden) { any = true; break; }
+      n = n.nextElementSibling;
+    }
+    h.hidden = !any;
+  }
   none.hidden = shown > 0;
 });
 </script>
