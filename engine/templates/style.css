@@ -172,6 +172,8 @@ a.cal-cell:hover { outline: 3px solid var(--blue); text-decoration: none; }
 .cal-cell.closed { background: repeating-linear-gradient(45deg, #f2ede7, #f2ede7 8px, #e9e2d9 8px, #e9e2d9 16px); }
 .cal-cell.closed .cal-names { color: var(--muted); font-style: italic; }
 @media (max-width: 640px) {
+  .topbar nav { gap: .6rem; }
+  .topbar nav a { font-size: .82rem; }
   .cal-cell { min-height: 46px; padding: .2rem .25rem; }
   .cal-names { font-size: .58rem; }
   .cal-pager { flex-wrap: wrap; justify-content: center; }
