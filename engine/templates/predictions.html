@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Predictions | {{ site_name }}{% endblock %}
+{% block content %}
+<h1>Predictions</h1>
+<p class="note">Names cycle. Some come back every year, some every few years.
+   Here's who's overdue, who's on the clock, and who showed up around this time last year.</p>
+
+{% if overdue %}
+<section class="card">
+  <h2>🎯 Overdue for a Return</h2>
+  <p class="note">These names haven't been called in over a year — they're due.</p>
+  <ul class="day-list">
+    {% for v in overdue %}
+    <li>
+      <a class="chip chip-{{ chip_class(v.name) }}" href="{{ r }}name/{{ v.slug }}/">{{ v.name }}</a>
+      <span class="meta">last {{ fmt_date(v.last) }} · {{ pl(v.days_since, "day") }} ago</span>
+      {% if v.avg_interval %}<span class="meta">· avg cycle {{ pl(v.avg_interval, "day") }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if on_clock %}
+<section class="card">
+  <h2>⏰ On the Clock</h2>
+  <p class="note">These names typically return on a regular schedule. Based on their average interval,
+     they should be showing up soon.</p>
+  <ul class="day-list">
+    {% for v in on_clock %}
+    <li>
+      <a class="chip chip-{{ chip_class(v.name) }}" href="{{ r }}name/{{ v.slug }}/">{{ v.name }}</a>
+      <span class="meta">last {{ fmt_date(v.last) }} · avg every {{ pl(v.avg_interval, "day") }} · {{ pl(v.days_since, "day") }} since last</span>
+      {% if v.days_until is defined %}
+      <span class="meta">· expected
+        {% if v.days_until <= 0 %}today! (overdue by {{ (v.days_until | abs) }} days){% else %}in {{ v.days_until }} days{% endif %}
+      </span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if this_week_last_year %}
+<section class="card">
+  <h2>📅 This Time Last Year</h2>
+  <p class="note">These names were called around this date last year. Will they return?</p>
+  <ul class="day-list">
+    {% for entry in this_week_last_year %}
+    <li>
+      <span class="meta">{{ fmt_med(entry.date) }}</span>
+      <span class="chips">
+        {% for name in entry.names %}<a class="chip chip-{{ chip_class(name) }}" href="{{ r }}name/{{ slugify(name) }}/">{{ name }}</a>{% endfor %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if two_years %}
+<section class="card">
+  <h2>📅 This Time Two Years Ago</h2>
+  <p class="note">For the really patient predictors.</p>
+  <ul class="day-list">
+    {% for entry in two_years %}
+    <li>
+      <span class="meta">{{ fmt_med(entry.date) }}</span>
+      <span class="chips">
+        {% for name in entry.names %}<a class="chip chip-{{ chip_class(name) }}" href="{{ r }}name/{{ slugify(name) }}/">{{ name }}</a>{% endfor %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>🧮 Methodology</h2>
+  <p>We look at names with 2+ calls and compute their average interval between appearances.
+     "Overdue" means 365+ days since last call. "On the Clock" means the name has a consistent
+     pattern (2+ calls) and is within 30 days of its expected return date.</p>
+  <p>This is fan speculation, not a crystal ball. Carmen picks names, not algorithms.</p>
+</section>
+{% endblock %}

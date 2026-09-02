@@ -393,6 +393,69 @@ def build(repo_root=None, out_dir=None):
                               days[i + 1]["date"] if i + 1 < len(days) else None)
     this_year_counts = collections.Counter(
         n for d in days if d["date"].startswith(year) for n in d["names"])
+
+    # ── predictions ──────────────────────────────────────────────────────────
+    # Compute cycling patterns for names called 2+ times
+    LATEST_ISO = latest_names_day["date"] if latest_names_day else latest["date"]
+    LATEST_DT = date.fromisoformat(LATEST_ISO)
+
+    def avg_interval(isos):
+        """Average days between consecutive calls."""
+        if len(isos) < 2:
+            return None
+        dates = sorted(date.fromisoformat(d) for d in isos)
+        diffs = [(dates[i+1] - dates[i]).days for i in range(len(dates)-1)]
+        return round(sum(diffs) / len(diffs))
+
+    # Overdue: 365+ days, sorted by days since
+    overdue = sorted(
+        (v for v in by_name.values() if v["days_since"] >= 365 and v["count"] >= 2),
+        key=lambda v: (-v["days_since"], v["name"]))
+    overdue_ctx = []
+    for v in overdue[:25]:
+        ai = avg_interval(v["dates"])
+        overdue_ctx.append({
+            "name": v["name"], "slug": v["slug"],
+            "last": v["last"], "days_since": v["days_since"],
+            "avg_interval": ai,
+        })
+
+    # On the clock: names with 2+ calls, within 30 days past their expected return
+    on_clock = []
+    for v in by_name.values():
+        if v["count"] < 2:
+            continue
+        ai = avg_interval(v["dates"])
+        if ai is None or ai > 400:  # skip very irregular names
+            continue
+        last_dt = date.fromisoformat(v["last"])
+        expected = last_dt.fromordinal(last_dt.toordinal() + ai)
+        days_until = (expected - LATEST_DT).days
+        if -60 <= days_until <= 30:  # overdue by up to 60 days or coming in 30
+            on_clock.append({
+                "name": v["name"], "slug": v["slug"],
+                "last": v["last"], "days_since": v["days_since"],
+                "avg_interval": ai, "days_until": days_until,
+            })
+    on_clock.sort(key=lambda v: v["days_until"])  # most due first
+    on_clock = on_clock[:25]
+
+    # This time last year: names called within ±7 days of this date last year
+    def this_time_window(target_date, years_back):
+        """Return days from years_back whose date is within 7 days of target."""
+        center = target_date.replace(year=target_date.year - years_back)
+        window_start = center.fromordinal(center.toordinal() - 7)
+        window_end = center.fromordinal(center.toordinal() + 7)
+        results = []
+        for d in days:
+            dd = date.fromisoformat(d["date"])
+            if window_start <= dd <= window_end and d["names"]:
+                results.append({"date": d["date"], "names": d["names"]})
+        return results
+
+    this_week_last_year = this_time_window(LATEST_DT, 1)
+    two_years = this_time_window(LATEST_DT, 2)
+
     ctx = {
         "r": "",                                   # root-relative prefix (set per page)
         "latest": latest,
@@ -419,6 +482,10 @@ def build(repo_root=None, out_dir=None):
         "families_total": len(families),
         "master_total": len(master),
         "duos": [{"names": list(k), "count": c} for k, c in duos.most_common(5)],
+        "overdue": overdue_ctx,
+        "on_clock": on_clock,
+        "this_week_last_year": this_week_last_year,
+        "two_years": two_years,
         "total_days": len(days),
         "total_slots": sum(len(d["names"]) for d in days),
         "year": year,
@@ -448,6 +515,7 @@ def build(repo_root=None, out_dir=None):
                               os.path.join("history", hm["key"], "index.html"), hm=hm))
     written.append(render("names_dir.html", os.path.join("names", "index.html")))
     written.append(render("stats.html", os.path.join("stats", "index.html")))
+    written.append(render("predictions.html", os.path.join("predictions", "index.html")))
     for d in days:
         written.append(render("day.html", os.path.join("day", d["date"], "index.html"), day=d))
     for v in by_name.values():
