@@ -12,8 +12,9 @@
     {% for h in recent_hits | reverse %}
     <li>
       <a class="chip chip-{{ chip_class(h.name) }}" href="{{ r }}name/{{ slugify(h.name) }}/">{{ h.name }}</a>
-      <span class="meta">predicted {{ fmt_med(h.predicted_on) }} · called {{ fmt_med(h.actual_date) }}</span>
-      {% if h.delta_days is not none %}<span class="meta">· {{ "on the money!" if h.delta_days == 0 else (h.delta_days | abs) ~ " days " ~ ("early" if h.delta_days < 0 else "late") }}</span>{% endif %}
+      <span class="meta">called {{ fmt_med(h.actual_date) }}</span>
+      {% if h.expected_date %}<span class="meta">· expected {{ fmt_med(h.expected_date) }}</span>{% endif %}
+      {% if h.delta_days is not none %}<span class="meta">· {{ "🎯 perfect!" if h.delta_days == 0 else "off by " ~ (h.delta_days | abs) ~ " day" ~ ("s" if (h.delta_days | abs) != 1) }}</span>{% endif %}
     </li>
     {% endfor %}
   </ul>
