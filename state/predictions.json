@@ -1,0 +1,42 @@
+{
+  "predicted": {},
+  "hits": [
+    {
+      "name": "CARSON",
+      "predicted_on": "2025-09-01",
+      "expected_interval": 375,
+      "expected_date": "2026-09-11",
+      "actual_date": "2026-09-02",
+      "delta_days": -9
+    },
+    {
+      "name": "GLORIA",
+      "predicted_on": "2025-07-15",
+      "expected_interval": 400,
+      "expected_date": "2026-08-19",
+      "actual_date": "2026-09-02",
+      "delta_days": 14
+    },
+    {
+      "name": "BLAKE",
+      "predicted_on": "2026-08-01",
+      "expected_interval": 398,
+      "expected_date": "2026-09-02",
+      "actual_date": "2026-09-03",
+      "delta_days": 1
+    },
+    {
+      "name": "COLBY",
+      "predicted_on": "2026-08-01",
+      "expected_interval": 350,
+      "expected_date": "2026-09-01",
+      "actual_date": "2026-09-03",
+      "delta_days": 2
+    }
+  ],
+  "stats": {
+    "total_predicted": 211,
+    "total_hits": 4
+  },
+  "last_build": "2026-01-02"
+}

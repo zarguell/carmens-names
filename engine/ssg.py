@@ -60,9 +60,44 @@ DORMANT_TOP = 25
 NEVER_CALLED_TOP = 50
 MANIFEST_NAME = ".build-manifest"          # rendered-path ledger for stale pruning
 CLOSED_MARKER = "CLOSED"                   # sole body line marking a closure day
+STATE_DIR = os.path.join(ROOT, "state")
+PREDICTIONS_FILE = os.path.join(STATE_DIR, "predictions.json")
 
 BLOCK_SPLIT = re.compile(r"\s*&\s*|\s+and\s+", re.IGNORECASE)
 DAY_LINE = re.compile(r"^[A-Z][A-Z '&\-]*$")
+
+
+# ── prediction state ───────────────────────────────────────────────────────
+def load_predictions_state():
+    """Load prediction state from JSON file."""
+    if os.path.exists(PREDICTIONS_FILE):
+        with open(PREDICTIONS_FILE) as f:
+            return json.load(f)
+    return {"predicted": {}, "hits": [], "stats": {"total_predicted": 0, "total_hits": 0}}
+
+
+def save_predictions_state(state):
+    """Save prediction state to JSON file."""
+    os.makedirs(STATE_DIR, exist_ok=True)
+    with open(PREDICTIONS_FILE, "w") as f:
+        json.dump(state, f, indent=2)
+
+
+def check_prediction_hits(today_names, predicted, latest_date):
+    """Check if today's names were predicted. Returns list of hit dicts."""
+    hits = []
+    for name in today_names:
+        if name in predicted:
+            p = predicted[name]
+            hits.append({
+                "name": name,
+                "predicted_on": p["predicted_on"],
+                "expected_interval": p.get("avg_interval"),
+                "expected_date": p.get("expected_date"),
+                "actual_date": latest_date,
+                "delta_days": (date.fromisoformat(latest_date) - date.fromisoformat(p.get("expected_date", latest_date))).days if p.get("expected_date") else None,
+            })
+    return hits
 
 
 # ── store ────────────────────────────────────────────────────────────────────
@@ -440,6 +475,53 @@ def build(repo_root=None, out_dir=None):
     on_clock.sort(key=lambda v: v["days_until"])  # most due first
     on_clock = on_clock[:25]
 
+    # ── prediction tracking ──────────────────────────────────────────────────
+    pred_state = load_predictions_state()
+    today_names = latest_names_day["names"] if latest_names_day else []
+    today_date = LATEST_ISO
+
+    # Check if today's names were predicted
+    hits_today = check_prediction_hits(today_names, pred_state.get("predicted", {}), today_date)
+    # Also check if today's names were in historical hits (backfill scenario)
+    existing_hit_names = {h["name"] for h in hits_today}
+    for h in pred_state.get("hits", []):
+        if h["actual_date"] == today_date and h["name"] in today_names and h["name"] not in existing_hit_names:
+            hits_today.append(h)
+            existing_hit_names.add(h["name"])
+
+    # Update stats
+    if hits_today:
+        # Deduplicate against existing hits
+        existing_keys = {(h["name"], h["actual_date"]) for h in pred_state.get("hits", [])}
+        new_hits = [h for h in hits_today if (h["name"], h["actual_date"]) not in existing_keys]
+        if new_hits:
+            pred_state["stats"]["total_hits"] = pred_state["stats"].get("total_hits", 0) + len(new_hits)
+            pred_state["hits"].extend(new_hits)
+        # Remove hit names from predicted list
+        for h in hits_today:
+            pred_state["predicted"].pop(h["name"], None)
+
+    # Update predicted list with current on_clock names
+    pred_state["predicted"] = {
+        v["name"]: {
+            "predicted_on": today_date,
+            "avg_interval": v["avg_interval"],
+            "days_until": v["days_until"],
+            "expected_date": (LATEST_DT.fromordinal(LATEST_DT.toordinal() + v["avg_interval"])).isoformat(),
+        }
+        for v in on_clock
+    }
+    pred_state["stats"]["total_predicted"] = pred_state["stats"].get("total_predicted", 0) + len(on_clock)
+    pred_state["last_build"] = today_date
+
+    save_predictions_state(pred_state)
+
+    # Prepare hits context for templates
+    recent_hits = pred_state["hits"][-20:]  # last 20 hits
+    prediction_stats = pred_state["stats"]
+    today_names_list = today_names
+    today_date_iso = today_date
+
     # This time last year: names called within ±7 days of this date last year
     def this_time_window(target_date, years_back):
         """Return days from years_back whose date is within 7 days of target."""
@@ -486,6 +568,11 @@ def build(repo_root=None, out_dir=None):
         "on_clock": on_clock,
         "this_week_last_year": this_week_last_year,
         "two_years": two_years,
+        "hits_today": hits_today,
+        "today_names": today_names_list,
+        "today_date": today_date_iso,
+        "recent_hits": recent_hits,
+        "prediction_stats": prediction_stats,
         "total_days": len(days),
         "total_slots": sum(len(d["names"]) for d in days),
         "year": year,

@@ -180,6 +180,11 @@ a.cal-cell:hover { outline: 3px solid var(--blue); text-decoration: none; }
   .cal-pager { flex-wrap: wrap; justify-content: center; }
 }
 
+/* ── predictions ── */
+.prediction-hit { color: var(--green); font-weight: 700; font-size: 1.1rem; margin: .5rem 0; }
+.prediction-hits, .prediction-hit-today, .scorecard { background: linear-gradient(135deg, #f0f9e8 0%, #fff 100%); }
+.scorecard .stat b { color: var(--green); }
+
 /* ── footer ── */
 footer { text-align: center; color: var(--muted); font-size: .82rem; padding: 1.5rem 1rem 2.5rem; }
 footer a { color: var(--blue); }

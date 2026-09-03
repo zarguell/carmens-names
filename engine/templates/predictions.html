@@ -5,6 +5,42 @@
 <p class="note">Names cycle. Some come back every year, some every few years.
    Here's who's overdue, who's on the clock, and who showed up around this time last year.</p>
 
+{% if recent_hits %}
+<section class="card prediction-hits">
+  <h2>🎉 Recent Hits</h2>
+  <ul class="day-list">
+    {% for h in recent_hits | reverse %}
+    <li>
+      <a class="chip chip-{{ chip_class(h.name) }}" href="{{ r }}name/{{ slugify(h.name) }}/">{{ h.name }}</a>
+      <span class="meta">predicted {{ fmt_med(h.predicted_on) }} · called {{ fmt_med(h.actual_date) }}</span>
+      {% if h.delta_days is not none %}<span class="meta">· {{ "on the money!" if h.delta_days == 0 else (h.delta_days | abs) ~ " days " ~ ("early" if h.delta_days < 0 else "late") }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if prediction_stats and prediction_stats.total_hits %}
+<section class="card scorecard">
+  <h2>📊 Scorecard</h2>
+  <div class="stats-row">
+    <div class="stat"><b>{{ prediction_stats.total_hits }}</b><span>hits</span></div>
+    <div class="stat"><b>{{ prediction_stats.total_predicted }}</b><span>predicted</span></div>
+    <div class="stat"><b>{{ ((prediction_stats.total_hits / prediction_stats.total_predicted * 100) | round | int) if prediction_stats.total_predicted else 0 }}%</b><span>accuracy</span></div>
+  </div>
+</section>
+{% endif %}
+
+{% if hits_today %}
+<section class="card prediction-hit-today">
+  <h2>🎯 Today's Prediction Hit!</h2>
+  <p class="note">{{ hits_today | map(attribute='name') | join(' & ') }} was predicted to return and did!</p>
+  {% for h in hits_today %}
+  <p class="meta">{{ h.name }}: predicted {{ fmt_short(h.predicted_on) }}{% if h.expected_interval %} (avg {{ pl(h.expected_interval, "day") }} cycle){% endif %}</p>
+  {% endfor %}
+</section>
+{% endif %}
+
 {% if overdue %}
 <section class="card">
   <h2>🎯 Overdue for a Return</h2>
