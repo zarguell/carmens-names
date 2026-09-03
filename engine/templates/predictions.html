@@ -37,7 +37,7 @@
   <h2>🎯 Today's Prediction Hit!</h2>
   <p class="note">{{ hits_today | map(attribute='name') | join(' & ') }} was predicted to return and did!</p>
   {% for h in hits_today %}
-  <p class="meta">{{ h.name }}: predicted {{ fmt_short(h.predicted_on) }}{% if h.expected_interval %} (avg {{ pl(h.expected_interval, "day") }} cycle){% endif %}</p>
+  <p class="meta">{{ h.name }}: expected {{ fmt_med(h.expected_date) }}{% if h.expected_interval %} (avg {{ pl(h.expected_interval, "day") }} cycle){% endif %}</p>
   {% endfor %}
 </section>
 {% endif %}
