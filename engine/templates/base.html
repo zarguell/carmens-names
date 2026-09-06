@@ -10,6 +10,14 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chewy&family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ r }}style.css">
+{% block ogtags %}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ site_name }}">
+<meta property="og:title" content="{{ site_name }}">
+<meta property="og:description" content="Who got the free gelati? A daily tracker of the Names of the Day served by Carmen's Italian Ice.">
+<meta property="og:url" content="{{ base_url }}/">
+<meta name="twitter:card" content="summary">
+{% endblock %}
 </head>
 <body>
 <header class="topbar">

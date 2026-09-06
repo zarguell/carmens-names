@@ -185,6 +185,12 @@ a.cal-cell:hover { outline: 3px solid var(--blue); text-decoration: none; }
 .prediction-hits, .prediction-hit-today, .scorecard { background: linear-gradient(135deg, #f0f9e8 0%, #fff 100%); }
 .scorecard .stat b { color: var(--green); }
 
+/* ── share ── */
+.share-row { display: flex; flex-wrap: wrap; gap: .45rem; justify-content: center; align-items: center; margin: .9rem 0 .2rem; }
+.share-label { font-weight: 800; color: var(--muted); font-size: .85rem; text-transform: uppercase; letter-spacing: 1px; }
+.share-btn { display: inline-block; background: var(--paper); color: var(--navy); font-weight: 700; font-size: .85rem; padding: .35rem .8rem; border-radius: 999px; box-shadow: var(--shadow); border: 2px solid transparent; cursor: pointer; font-family: inherit; }
+.share-btn:hover { border-color: var(--blue); color: var(--blue); text-decoration: none; }
+
 /* ── footer ── */
 footer { text-align: center; color: var(--muted); font-size: .82rem; padding: 1.5rem 1rem 2.5rem; }
 footer a { color: var(--blue); }
