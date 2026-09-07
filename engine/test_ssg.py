@@ -235,7 +235,7 @@ def test_name_families():
         assert "LYNN (and related names)" not in solo
 
 
-def test_share_buttons_on_index():
+def test_share_button_on_index():
     with tempfile.TemporaryDirectory() as tmp:
         _write(tmp, "data/days/2026-01-02.txt", "JESSIE & PEREZ\n")
         _write(tmp, "data/days/2026-01-03.txt", "PEREZ & LYNN\n")
@@ -243,25 +243,25 @@ def test_share_buttons_on_index():
         out = os.path.join(tmp, "_site")
         ssg.build(repo_root=tmp, out_dir=out)
         idx = open(os.path.join(out, "index.html")).read()
-        # share row with one link per channel + copy/native buttons
-        assert 'aria-label="Share today\'s names"' in idx
-        assert "twitter.com/intent/tweet" in idx
-        assert "facebook.com/sharer/sharer.php" in idx
-        assert "wa.me/" in idx
-        assert "mailto:?subject=" in idx
-        assert 'id="share-copy"' in idx and 'id="share-native"' in idx
-        # the shared URL is the day permalink (stable, not the front page)
-        assert "day/2026-01-03/" in idx
-        # OG preview tags point at the same permalink with today's names
-        assert 'property="og:url"' in idx and "day/2026-01-03/" in idx
+        # one Share button (native sheet where supported, copy-link fallback)
+        # and no per-platform links
+        assert 'id="share-btn"' in idx
+        assert "day/2026-01-03/" in idx  # shared URL is the day permalink
+        assert "navigator.share" in idx
+        for unwanted in ("twitter.com/intent", "facebook.com/sharer",
+                         "wa.me/", "mailto:", 'id="share-copy"',
+                         'id="share-native"'):
+            assert unwanted not in idx, f"leftover share link: {unwanted}"
+        # OG tags: homepage canonical URL, today's names in the title
+        assert 'property="og:url" content="https://zarguell.github.io/carmens-names/"' in idx
         assert 'property="og:title"' in idx and "PEREZ" in idx
-        # a closure day has no names to share: no share row, no stale chips
+        # a closure day has no names to share: no share button, no stale chips
         os.unlink(os.path.join(tmp, "data/days/2026-01-03.txt"))
         _write(tmp, "data/days/2026-01-04.txt", "# c\nCLOSED\n")
         ssg.build(repo_root=tmp, out_dir=out)
         closed = open(os.path.join(out, "index.html")).read()
         assert "The shop is closed" in closed
-        assert 'aria-label="Share today\'s names"' not in closed
+        assert 'id="share-btn"' not in closed
 
 
 def test_day_pages_carry_unfurl_tags():
