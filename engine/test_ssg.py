@@ -264,6 +264,34 @@ def test_share_buttons_on_index():
         assert 'aria-label="Share today\'s names"' not in closed
 
 
+def test_day_pages_carry_unfurl_tags():
+    # link previews fetch the SHARED url (the day permalink), so each
+    # day page needs its own names + self-consistent og:url + image —
+    # generic homepage tags there render a stale/bare preview (iMessage).
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(tmp, "data/days/2026-01-02.txt", "JESSIE & PEREZ\n")
+        _write(tmp, "data/days/2026-01-03.txt", "PEREZ & LYNN\n")
+        _write(tmp, "data/master-names.csv", "name,years_in_top1000,total_share\nMARY,258,12.0\n")
+        out = os.path.join(tmp, "_site")
+        ssg.build(repo_root=tmp, out_dir=out)
+        day = open(os.path.join(out, "day/2026-01-03/index.html")).read()
+        assert 'property="og:title"' in day and "PEREZ" in day and "LYNN" in day
+        assert 'property="og:url" content="https://zarguell.github.io/carmens-names/day/2026-01-03/"' in day
+        assert 'property="og:image" content="https://zarguell.github.io/carmens-names/og-image.png"' in day
+        assert 'name="twitter:card" content="summary_large_image"' in day
+        idx = open(os.path.join(out, "index.html")).read()
+        assert "og-image.png" in idx
+        # the preview image ships with the build and is a real 1200x630 PNG
+        img = os.path.join(out, "og-image.png")
+        assert os.path.exists(img)
+        with open(img, "rb") as f:
+            head = f.read(26)
+        assert head[:8] == b"\x89PNG\r\n\x1a\n"
+        import struct as _st
+        w, h = _st.unpack(">II", head[16:24])
+        assert (w, h) == (1200, 630)
+
+
 def main():
     tests = [v for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]

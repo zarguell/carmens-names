@@ -39,6 +39,7 @@ import html
 import json
 import os
 import re
+import shutil
 import sys
 from datetime import date, datetime
 
@@ -47,6 +48,8 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 ENGINE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(ENGINE)                       # repo root = Pages root
 TMPL_DIR = os.path.join(ENGINE, "templates")
+STATIC_DIR = os.path.join(ENGINE, "static")          # committed assets copied verbatim to the site root
+OG_IMAGE = "og-image.png"                             # 1200x630 branded preview (see engine/make_og_image.py)
 DAYS_DIR = os.path.join(ROOT, "data", "days")
 MASTER_CSV = os.path.join(ENGINE, "data", "master-names.csv")
 
@@ -591,6 +594,13 @@ def build(repo_root=None, out_dir=None):
     written = []
     written.append(render("index.html", "index.html"))
     written.append(render("style.css", "style.css"))
+    # committed static assets (og-image.png, …) ship verbatim to the root
+    for asset in sorted(os.listdir(STATIC_DIR)):
+        src = os.path.join(STATIC_DIR, asset)
+        if os.path.isfile(src):
+            dest = os.path.join(out, asset)
+            shutil.copyfile(src, dest)
+            written.append(dest)
     written.append(render("404.html", "404.html"))
     written.append(render("robots.txt", "robots.txt"))
     written.append(render("names.json", "names.json"))
