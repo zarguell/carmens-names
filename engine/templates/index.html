@@ -29,8 +29,8 @@
   <div class="big-chips">
     {% for n in latest.names %}<a class="chip chip-{{ chip_class(n) }} big" href="{{ r }}name/{{ slugify(n) }}/">{{ n }}</a>{% endfor %}
   </div>
-  {% if hits_today %}
-  <p class="prediction-hit">🎯 Predicted! {{ hits_today | map(attribute='name') | join(' & ') }} was expected to return.</p>
+  {% if latest_hit %}
+  <p class="prediction-hit">🎯 Predicted! <a href="{{ r }}name/{{ slugify(latest_hit.name) }}/">{{ latest_hit.name }}</a> showed up {{ fmt_med(latest_hit.actual_date) }} — the model called it {{ pl(latest_hit.cycle, "day") }} out.</p>
   {% endif %}
   {% if latest.blocks | length > 1 %}
   <p class="alsos">Also called: {% for b in latest.blocks[1:] %}{{ b | join(' & ') }}{% if not loop.last %}, {% endif %}{% endfor %}</p>

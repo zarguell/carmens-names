@@ -4,6 +4,7 @@ Run: python3 engine/test_ssg.py   (runs standalone — every test_* function
 executes; also collectable by pytest)
 """
 import json
+import math
 import os
 import sys
 import tempfile
@@ -290,6 +291,132 @@ def test_day_pages_carry_unfurl_tags():
         import struct as _st
         w, h = _st.unpack(">II", head[16:24])
         assert (w, h) == (1200, 630)
+
+
+# ── prediction model (derived, no stored state) ──────────────────
+
+def test_gaps_and_median():
+    assert ssg.gaps_of(["2026-01-01", "2026-01-31", "2026-02-20"]) == [30, 20]
+    assert ssg.median([5, 1, 3]) == 3
+    assert ssg.median([4, 1, 3, 2]) == 2.5
+    assert ssg.median([]) is None
+
+
+def test_predict_name_needs_two_calls():
+    assert ssg.predict_name(["2026-01-01"], 250) is None
+    assert ssg.predict_name([], 250) is None
+
+
+def test_predict_name_median_cycle_and_expected():
+    # gaps 30, 30, 400 -> median 30 (robust to the freak 400 gap)
+    m = ssg.predict_name(["2026-01-01", "2026-01-31", "2026-03-02", "2026-04-11"], 250)
+    assert m["cycle"] == 30
+    assert m["expected"].isoformat() == "2026-05-11"  # last + 30
+    assert 0 < m["p7"] < 1
+
+
+def test_predict_name_rejects_long_cycles():
+    assert ssg.predict_name(["2024-01-01", "2025-06-01"], 250) is None  # 516-day gap
+
+
+def test_predict_name_p7_shrinks_toward_base_rate():
+    # a single 30-day gap is thin evidence; its rate must sit between the
+    # raw rate (1/30) and the prior (1/250)
+    m = ssg.predict_name(["2026-01-01", "2026-01-31"], 250)
+    rate = -math.log(1 - m["p7"]) / ssg.PROB_HORIZON
+    assert 1 / 250 < rate < 1 / 30
+
+
+def test_replay_predictions_synthetic_hit_and_miss():
+    # AL repeats every 30 days (expected 2026-03-02, called exactly then ->
+    # a perfect hit). BEA and ZOE lack a cycle, so they must never hit.
+    days = [
+        {"date": "2026-01-01", "closed": False, "blocks": [["AL"]], "names": ["AL"]},
+        {"date": "2026-01-31", "closed": False, "blocks": [["AL"]], "names": ["AL"]},
+        {"date": "2026-02-20", "closed": False, "blocks": [["BEA"]], "names": ["BEA"]},
+        {"date": "2026-03-02", "closed": False, "blocks": [["AL", "ZOE"]], "names": ["AL", "ZOE"]},
+    ]
+    r = ssg.replay_predictions(days, start="2026-02-01")
+    assert {h["name"] for h in r["hits"]} == {"AL"}
+    hit = r["hits"][0]
+    assert hit["actual_date"] == "2026-03-02"
+    assert hit["delta_days"] == 0
+    # chance baseline: day 2 had a 1-name set vs pool 1 -> 1; day 4 a 1-name
+    # set vs pool 2 with 2 slots -> 1. Two name-day predictions, 1 hit.
+    assert r["chance"] == 2.0 and r["uplift"] == 0.5
+
+
+def test_replay_never_uses_same_day_data():
+    # ZOE's first two calls are day 1 and the replay day itself: the model
+    # on that morning had only ONE call, so ZOE is unpredictable -> no hit.
+    days = [
+        {"date": "2026-01-01", "closed": False, "blocks": [["ZOE"]], "names": ["ZOE"]},
+        {"date": "2026-02-01", "closed": False, "blocks": [["ZOE"]], "names": ["ZOE"]},
+    ]
+    r = ssg.replay_predictions(days, start="2026-02-01")
+    assert r["hits"] == []
+
+
+def test_replay_closed_days_are_neither_predicted_nor_counted():
+    days = [
+        {"date": "2026-01-01", "closed": False, "blocks": [["AL"]], "names": ["AL"]},
+        {"date": "2026-01-31", "closed": False, "blocks": [["AL"]], "names": ["AL"]},
+        {"date": "2026-02-05", "closed": True, "blocks": [], "names": []},
+        {"date": "2026-03-02", "closed": False, "blocks": [["AL"]], "names": ["AL"]},
+    ]
+    r = ssg.replay_predictions(days, start="2026-02-01")
+    assert r["days"] == 1  # the closed day is skipped entirely
+    assert {h["name"] for h in r["hits"]} == {"AL"}
+
+
+def test_load_watchlist_parses_and_normalizes():
+    with tempfile.TemporaryDirectory() as tmp:
+        p = os.path.join(tmp, "watchlist.txt")
+        with open(p, "w") as f:
+            f.write("# comment\nNikki\n  NICOLE  \n\n# more\nnikki\n")
+        assert ssg.load_watchlist(p) == ["NIKKI", "NICOLE", "NIKKI"]
+
+
+def test_watchlist_inherits_family_history():
+    # NIKKI was never called, but family member NICOLE was: the watchlist
+    # row for NIKKI must ride along (slug points at the called member).
+    by_name = {"NICOLE": {"name": "NICOLE", "slug": "nicole",
+                          "dates": ["2026-01-01", "2026-01-31", "2026-03-02"]}}
+    fam = {"NIKKI": "nicole-family", "COLE": "nicole-family",
+           "NICOLE": "nicole-family"}
+    fam_members = {"nicole-family": {"NICOLE": 3}}
+    rows = ssg.build_watchlist(["NIKKI", "COLE"], by_name, fam, fam_members,
+                               ssg.date.fromisoformat("2026-03-10"), 250)
+    assert len(rows) == 1                     # same family -> one merged row
+    assert rows[0]["name"] == "NICOLE" and rows[0]["slug"] == "nicole"
+    assert rows[0]["note"] == "watching NIKKI (via family), COLE"
+
+
+def test_watchlist_never_called_gets_base_rate():
+    rows = ssg.build_watchlist(["NOSUCH"], {}, {}, {},
+                               ssg.date.fromisoformat("2026-03-10"), 250)
+    assert rows[0]["p7_pct"] > 0 and rows[0]["note"] == "never called"
+
+
+def test_build_predictions_page_is_derived_and_honest():
+    # No state/ dir at all: the predictions page must still render from the
+    # day files alone, and no predictions.json may be written.
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(tmp, "data/days/2026-01-01.txt", "# Names of the Day: 2026-01-01\nJESSIE & PEREZ\n")
+        _write(tmp, "data/days/2026-01-31.txt", "# Names of the Day: 2026-01-31\nJESSIE & PEREZ\n")
+        _write(tmp, "data/days/2026-03-02.txt", "# Names of the Day: 2026-03-02\nJESSIE & LYNN\n")
+        _write(tmp, "data/master-names.csv", "name,years_in_top1000,total_share\nMARY,258,12.0\n")
+        out = os.path.join(tmp, "_site")
+        ssg.build(repo_root=tmp, out_dir=out)
+        page = open(os.path.join(out, "predictions", "index.html")).read()
+        assert "Scorecard" in page and "days replayed" in page
+        assert "accuracy" not in page          # the old fake stat is gone
+        assert not os.path.exists(os.path.join(tmp, "state", "predictions.json"))
+        # JESSIE repeats on 30-day cycles; its 03-02 call was predicted
+        assert "JESSIE" in page and "Recent Hits" in page
+        # the homepage banner surfaces the fresh derived hit
+        home = open(os.path.join(out, "index.html")).read()
+        assert "Predicted!" in home and "JESSIE" in home
 
 
 def main():

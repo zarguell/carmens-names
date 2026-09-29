@@ -37,6 +37,7 @@ import collections
 import csv
 import html
 import json
+import math
 import os
 import re
 import shutil
@@ -64,43 +65,198 @@ NEVER_CALLED_TOP = 50
 MANIFEST_NAME = ".build-manifest"          # rendered-path ledger for stale pruning
 CLOSED_MARKER = "CLOSED"                   # sole body line marking a closure day
 STATE_DIR = os.path.join(ROOT, "state")
-PREDICTIONS_FILE = os.path.join(STATE_DIR, "predictions.json")
+WATCHLIST_FILE = os.path.join(STATE_DIR, "watchlist.txt")  # optional; names to highlight
+
+# ── prediction model constants ──
+# Predictions are DERIVED at build time from data/days/ — no stored state.
+# (The old state/predictions.json died 2026-09-28: CI builds discarded the
+# file they wrote, so the committed hit ledger froze empty at launch and the
+# page could never record a hit again.)
+REPLAY_START = "2026-01-01"  # replay the hit ledger from here (earlier years are sparse backfills)
+MIN_CALLS = 2                # calls needed before a cycle is estimable
+MAX_CYCLE = 400              # names with a longer median cycle are treated as unpredictable
+WINDOW_OVERDUE = 60          # a name stays predictable up to 60 days past its expected date...
+WINDOW_LEAD = 30             # ...and from 30 days before it
+ON_CLOCK_TOP = 25            # cap for the "On the Clock" list
+PROB_HORIZON = 7             # days ahead for the P(called) estimate
+RATE_PRIOR = 2.0             # shrinkage weight of the global base rate vs the name's own gaps
+DEFAULT_PRIOR_GAP = 250.0    # fallback mean gap (days) when history is too sparse to derive one
 
 BLOCK_SPLIT = re.compile(r"\s*&\s*|\s+and\s+", re.IGNORECASE)
 DAY_LINE = re.compile(r"^[A-Z][A-Z '&\-]*$")
 
 
-# ── prediction state ───────────────────────────────────────────────────────
-def load_predictions_state():
-    """Load prediction state from JSON file."""
-    if os.path.exists(PREDICTIONS_FILE):
-        with open(PREDICTIONS_FILE) as f:
-            return json.load(f)
-    return {"predicted": {}, "hits": [], "stats": {"total_predicted": 0, "total_hits": 0}}
+# ── prediction model — derived, no stored state ───────────────────────────────────────────────────────
+def gaps_of(dates):
+    """ISO dates -> day gaps between consecutive calls (chronological)."""
+    dts = sorted(date.fromisoformat(d) for d in dates)
+    return [(b - a).days for a, b in zip(dts, dts[1:])]
 
 
-def save_predictions_state(state):
-    """Save prediction state to JSON file."""
-    os.makedirs(STATE_DIR, exist_ok=True)
-    with open(PREDICTIONS_FILE, "w") as f:
-        json.dump(state, f, indent=2)
+def median(xs):
+    xs = sorted(xs)
+    n = len(xs)
+    if not n:
+        return None
+    mid = n // 2
+    return xs[mid] if n % 2 else (xs[mid - 1] + xs[mid]) / 2
 
 
-def check_prediction_hits(today_names, predicted, latest_date):
-    """Check if today's names were predicted. Returns list of hit dicts."""
-    hits = []
-    for name in today_names:
-        if name in predicted:
-            p = predicted[name]
-            hits.append({
-                "name": name,
-                "predicted_on": p["predicted_on"],
-                "expected_interval": p.get("avg_interval"),
-                "expected_date": p.get("expected_date"),
-                "actual_date": latest_date,
-                "delta_days": (date.fromisoformat(latest_date) - date.fromisoformat(p.get("expected_date", latest_date))).days if p.get("expected_date") else None,
-            })
-    return hits
+def predict_name(dates, prior_gap):
+    """Cycle model for one name from its call dates. None when unpredictable.
+
+    cycle     median gap (robust — one freak 600-day gap barely moves it)
+    expected  last call + cycle
+    p7        P(called within the next PROB_HORIZON days): Poisson with the
+              name's mean rate shrunk toward the global base rate, so a name
+              with a single small gap doesn't get a razor-sharp rate.
+    """
+    gaps = gaps_of(dates)
+    if len(gaps) < MIN_CALLS - 1:
+        return None
+    cyc = median(gaps)
+    if cyc is None or cyc > MAX_CYCLE:
+        return None
+    mean_gap = sum(gaps) / len(gaps)
+    if mean_gap <= 0:                      # only consecutive-day calls: no cycle
+        return None
+    n = len(gaps)
+    rate = (n / max(mean_gap, 1.0) + RATE_PRIOR / prior_gap) / (n + RATE_PRIOR)
+    last = date.fromisoformat(sorted(dates)[-1])
+    expected = date.fromordinal(last.toordinal() + round(cyc))
+    return {
+        "cycle": round(cyc),
+        "expected": expected,
+        "p7": 1.0 - math.exp(-rate * PROB_HORIZON),
+    }
+
+
+def load_watchlist(path=None):
+    """state/watchlist.txt — one name per line, '#' comments. Optional."""
+    path = path or WATCHLIST_FILE
+    if not os.path.exists(path):
+        return []
+    names = []
+    with open(path) as f:
+        for ln in f:
+            ln = ln.strip()
+            if ln and not ln.startswith("#"):
+                names.append(ln.upper())
+    return names
+
+
+def build_watchlist(watch_names, by_name, fam, fam_members, latest_dt, prior_gap):
+    """Rank watched names by P(called within PROB_HORIZON days).
+
+    A watch name with no calls of its own inherits its family's combined
+    call history (watching a nickname still works when Carmen calls the
+    formal name).
+    Several watch names resolving to the same family merge into one row.
+    """
+    base_p7 = 1.0 - math.exp(-(1.0 / prior_gap) * PROB_HORIZON)
+    rows, index = [], {}
+    for w in watch_names:
+        entry = by_name.get(w)
+        via_family = False
+        if entry:
+            dates, display = entry["dates"], entry
+        else:
+            comp = fam.get(w)
+            members = sorted(fam_members.get(comp, {})) if comp else []
+            if not members:
+                key = ("never", w)
+                if key in index:
+                    continue
+                index[key] = True
+                rows.append({"name": w, "slug": None, "last": None,
+                             "cycle": None, "days_until": None, "expected": None,
+                             "p7_pct": round(base_p7 * 100), "note": "never called"})
+                continue
+            dates = sorted(d for m in members for d in by_name[m]["dates"])
+            display = by_name[members[0]]
+            via_family = True
+        key = (display["name"], display.get("slug"))
+        if key in index:
+            row = rows[index[key]]
+            if w not in row["note"]:
+                row["note"] += ", " + w
+            continue
+        model = predict_name(dates, prior_gap)
+        last = max(dates)
+        note = "watching " + w + (" (via family)" if via_family else "")
+        if model:
+            row = {"name": display["name"], "slug": display["slug"],
+                   "last": last, "cycle": model["cycle"],
+                   "days_until": (model["expected"] - latest_dt).days,
+                   "expected": model["expected"].isoformat(),
+                   "p7_pct": round(model["p7"] * 100), "note": note}
+        else:
+            row = {"name": display["name"], "slug": display["slug"],
+                   "last": last, "cycle": None, "days_until": None,
+                   "expected": None, "p7_pct": round(base_p7 * 100),
+                   "note": note + " — no clear cycle yet"}
+        index[key] = len(rows)
+        rows.append(row)
+    rows.sort(key=lambda v: -v["p7_pct"])
+    return rows
+
+
+def replay_predictions(days, start=REPLAY_START):
+    """Honest hit ledger: re-predict every day from strictly-prior data.
+
+    For each day D since `start`, the predicted set is what the model would
+    have said that morning (data < D); a hit is a day's actual name in that
+    set. Deterministic — the ledger can never drift from the day files.
+    Also accumulates a chance baseline (expected hits if same-size sets were
+    drawn at random from the then-known pool) so the scorecard can show
+    uplift instead of a fake accuracy percentage.
+    """
+    by = {}
+    for day in days:
+        if day["date"] >= start:
+            break
+        for n in day["names"]:
+            by.setdefault(n, []).append(day["date"])
+    all_gaps = [g for ds in by.values() if len(ds) >= MIN_CALLS for g in gaps_of(ds)]
+    prior_gap = (sum(all_gaps) / len(all_gaps)) if all_gaps else DEFAULT_PRIOR_GAP
+
+    model_cache = {}                       # name -> (len(seen), model)
+    hits, tested, preds, chance = [], 0, 0, 0.0
+    for day in days:
+        if day["date"] < start:
+            continue                           # already fed by the pre-pass
+        if not day["names"]:
+            continue                           # closed day: nothing to hit
+        day_dt = date.fromisoformat(day["date"])
+        pool = len(by)
+        onclock = {}
+        for n, ds in by.items():
+            m = model_cache.get(n)
+            if m is None or m[0] != len(ds):
+                m = (len(ds), predict_name(ds, prior_gap))
+                model_cache[n] = m
+            pm = m[1]
+            if not pm:
+                continue
+            du = (pm["expected"] - day_dt).days
+            if -WINDOW_OVERDUE <= du <= WINDOW_LEAD:
+                onclock[n] = pm
+        preds += len(onclock)
+        if pool:
+            chance += len(onclock) * len(day["names"]) / pool
+        day_set = set(day["names"])
+        for n, pm in onclock.items():
+            if n in day_set:
+                hits.append({"name": n, "cycle": pm["cycle"],
+                             "expected_date": pm["expected"].isoformat(),
+                             "actual_date": day["date"],
+                             "delta_days": (day_dt - pm["expected"]).days})
+        tested += 1
+        for n in day["names"]:
+            by.setdefault(n, []).append(day["date"])
+    return {"hits": hits, "days": tested, "predictions": preds,
+            "chance": round(chance, 1),
+            "uplift": round(len(hits) / chance, 2) if chance else None}
 
 
 # ── store ────────────────────────────────────────────────────────────────────
@@ -437,93 +593,52 @@ def build(repo_root=None, out_dir=None):
     LATEST_ISO = latest_names_day["date"] if latest_names_day else latest["date"]
     LATEST_DT = date.fromisoformat(LATEST_ISO)
 
-    def avg_interval(isos):
-        """Average days between consecutive calls."""
-        if len(isos) < 2:
-            return None
-        dates = sorted(date.fromisoformat(d) for d in isos)
-        diffs = [(dates[i+1] - dates[i]).days for i in range(len(dates)-1)]
-        return round(sum(diffs) / len(diffs))
+    # global mean gap = shrinkage target for per-name rates
+    all_gaps = [g for v in by_name.values() if v["count"] >= MIN_CALLS
+                for g in gaps_of(v["dates"])]
+    prior_gap = (sum(all_gaps) / len(all_gaps)) if all_gaps else DEFAULT_PRIOR_GAP
 
-    # Overdue: 365+ days, sorted by days since
+    # Overdue: 365+ days since last call, sorted by days since
     overdue = sorted(
         (v for v in by_name.values() if v["days_since"] >= 365 and v["count"] >= 2),
         key=lambda v: (-v["days_since"], v["name"]))
     overdue_ctx = []
     for v in overdue[:25]:
-        ai = avg_interval(v["dates"])
+        m = predict_name(v["dates"], prior_gap)
         overdue_ctx.append({
             "name": v["name"], "slug": v["slug"],
             "last": v["last"], "days_since": v["days_since"],
-            "avg_interval": ai,
+            "cycle": m["cycle"] if m else None,
         })
 
-    # On the clock: names with 2+ calls, within 30 days past their expected return
+    # On the clock: predictable names inside their expected-return window
     on_clock = []
     for v in by_name.values():
-        if v["count"] < 2:
+        m = predict_name(v["dates"], prior_gap)
+        if not m:
             continue
-        ai = avg_interval(v["dates"])
-        if ai is None or ai > 400:  # skip very irregular names
-            continue
-        last_dt = date.fromisoformat(v["last"])
-        expected = last_dt.fromordinal(last_dt.toordinal() + ai)
-        days_until = (expected - LATEST_DT).days
-        if -60 <= days_until <= 30:  # overdue by up to 60 days or coming in 30
+        days_until = (m["expected"] - LATEST_DT).days
+        if -WINDOW_OVERDUE <= days_until <= WINDOW_LEAD:
             on_clock.append({
                 "name": v["name"], "slug": v["slug"],
                 "last": v["last"], "days_since": v["days_since"],
-                "avg_interval": ai, "days_until": days_until,
+                "cycle": m["cycle"], "days_until": days_until,
+                "expected": m["expected"].isoformat(),
+                "p7_pct": round(m["p7"] * 100),
             })
     on_clock.sort(key=lambda v: v["days_until"])  # most due first
-    on_clock = on_clock[:25]
+    on_clock = on_clock[:ON_CLOCK_TOP]
 
-    # ── prediction tracking ──────────────────────────────────────────────────
-    pred_state = load_predictions_state()
-    today_names = latest_names_day["names"] if latest_names_day else []
-    today_date = LATEST_ISO
-
-    # Check if today's names were predicted
-    hits_today = check_prediction_hits(today_names, pred_state.get("predicted", {}), today_date)
-    # Also check if today's names were in historical hits (backfill scenario)
-    existing_hit_names = {h["name"] for h in hits_today}
-    for h in pred_state.get("hits", []):
-        if h["actual_date"] == today_date and h["name"] in today_names and h["name"] not in existing_hit_names:
-            hits_today.append(h)
-            existing_hit_names.add(h["name"])
-
-    # Update stats
-    if hits_today:
-        # Deduplicate against existing hits
-        existing_keys = {(h["name"], h["actual_date"]) for h in pred_state.get("hits", [])}
-        new_hits = [h for h in hits_today if (h["name"], h["actual_date"]) not in existing_keys]
-        if new_hits:
-            pred_state["stats"]["total_hits"] = pred_state["stats"].get("total_hits", 0) + len(new_hits)
-            pred_state["hits"].extend(new_hits)
-        # Remove hit names from predicted list
-        for h in hits_today:
-            pred_state["predicted"].pop(h["name"], None)
-
-    # Update predicted list with current on_clock names
-    pred_state["predicted"] = {
-        v["name"]: {
-            "predicted_on": today_date,
-            "avg_interval": v["avg_interval"],
-            "days_until": v["days_until"],
-            "expected_date": (LATEST_DT.fromordinal(LATEST_DT.toordinal() + v["avg_interval"])).isoformat(),
-        }
-        for v in on_clock
-    }
-    pred_state["stats"]["total_predicted"] = pred_state["stats"].get("total_predicted", 0) + len(on_clock)
-    pred_state["last_build"] = today_date
-
-    save_predictions_state(pred_state)
-
-    # Prepare hits context for templates
-    recent_hits = pred_state["hits"][-20:]  # last 20 hits
-    prediction_stats = pred_state["stats"]
-    today_names_list = today_names
-    today_date_iso = today_date
+    # ── prediction ledger — derived at build time, no stored state ──────────────────────────────────────────────────
+    prediction = replay_predictions(days)
+    recent_hits = prediction["hits"][-20:]
+    latest_hit = recent_hits[-1] if recent_hits else None
+    if latest_hit and (LATEST_DT - date.fromisoformat(latest_hit["actual_date"])).days > 7:
+        latest_hit = None
+    watchlist = build_watchlist(load_watchlist(), by_name, fam, fam_members,
+                                LATEST_DT, prior_gap)
+    today_names_list = latest_names_day["names"] if latest_names_day else []
+    today_date_iso = LATEST_ISO
 
     # This time last year: names called within ±7 days of this date last year
     def this_time_window(target_date, years_back):
@@ -571,11 +686,12 @@ def build(repo_root=None, out_dir=None):
         "on_clock": on_clock,
         "this_week_last_year": this_week_last_year,
         "two_years": two_years,
-        "hits_today": hits_today,
         "today_names": today_names_list,
         "today_date": today_date_iso,
+        "prediction": prediction,
         "recent_hits": recent_hits,
-        "prediction_stats": prediction_stats,
+        "latest_hit": latest_hit,
+        "watchlist": watchlist,
         "total_days": len(days),
         "total_slots": sum(len(d["names"]) for d in days),
         "year": year,
